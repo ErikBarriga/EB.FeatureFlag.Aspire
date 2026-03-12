@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\EB.FeatureFlag.Data.Cache.InMemory\EB.FeatureFlag.Data.Cache.InMemory.csproj" />
+    <ProjectReference Include="..\EB.FeatureFlag.Data.Cache.Redis\EB.FeatureFlag.Data.Cache.Redis.csproj" />
+    <ProjectReference Include="..\EB.FeatureFlag.Data.ICache\EB.FeatureFlag.Data.ICache.csproj" />
+    <ProjectReference Include="..\EB.FeatureFlag.Data.IProvider\EB.FeatureFlag.Data.IProvider.csproj" />
+    <ProjectReference Include="..\EB.FeatureFlag.Data.IRepository\EB.FeatureFlag.Data.IRepository.csproj" />
+    <ProjectReference Include="..\EB.FeatureFlag.Data.Provider\EB.FeatureFlag.Data.Provider.csproj" />
+    <ProjectReference Include="..\EB.FeatureFlag.Data.Repository.CosmosDb\EB.FeatureFlag.Data.Repository.CosmosDb.csproj" />
+  </ItemGroup>
+
+</Project>

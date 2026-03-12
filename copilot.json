@@ -1,0 +1,13 @@
+{
+  "instructions": [
+    "Follow the rules in .editorconfig and CONTRIBUTING.md.",
+    "Prioritize the use of Blazor and modern components.",
+    "Do not use placeholder code.",
+    "Use C# 9+ and recommended patterns for Blazor.",
+    "Build the multitenant Feature Flags system following these critical rules:",
+    "Do not generate all code at once. Wait for approval at each stage before continuing.",
+    "Apply SOLID principles, appropriate design patterns, and strong typing (TypeScript/Pydantic/etc., according to the stack).",
+    "At the end of each stage, provide a summary of what was built and how to verify it works.",
+    "Modular approach: the system must handle Products -> Environments -> Sections -> Keys."
+  ]
+}
