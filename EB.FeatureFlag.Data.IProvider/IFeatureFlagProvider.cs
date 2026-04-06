@@ -14,11 +14,17 @@ public interface IFeatureFlagProvider
     Task<ProductDto> UpsertProductAsync(ProductDto product, CancellationToken cancellationToken = default);
     Task DeleteProductAsync(Guid id, CancellationToken cancellationToken = default);
 
+    // Product key rotation
+    Task<ProductDto> RotateProductKeysAsync(Guid productId, CancellationToken cancellationToken = default);
+
     // Environment operations
     Task<EnvironmentDto?> GetEnvironmentByIdAsync(Guid id, CancellationToken cancellationToken = default);
     Task<IEnumerable<EnvironmentDto>> GetEnvironmentsByProductIdAsync(Guid productId, CancellationToken cancellationToken = default);
     Task<EnvironmentDto> UpsertEnvironmentAsync(EnvironmentDto environment, CancellationToken cancellationToken = default);
     Task DeleteEnvironmentAsync(Guid id, CancellationToken cancellationToken = default);
+
+    // Environment key rotation
+    Task<EnvironmentDto> RotateEnvironmentKeysAsync(Guid environmentId, CancellationToken cancellationToken = default);
 
     // Section operations
     Task<SectionDto?> GetSectionByIdAsync(Guid id, CancellationToken cancellationToken = default);

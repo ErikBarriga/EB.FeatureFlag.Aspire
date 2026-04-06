@@ -1,7 +1,7 @@
+using EB.FeatureFlag.Data.ICache;
 using EB.FeatureFlag.Data.IProvider;
 using EB.FeatureFlag.Data.IRepository.DTOs;
 using EB.FeatureFlag.Data.IRepository.Interfaces;
-using EB.FeatureFlag.Data.ICache;
 
 namespace EB.FeatureFlag.Data.Provider;
 
@@ -71,6 +71,11 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         ProductDto result;
         if (product.Id == Guid.Empty)
         {
+            if (string.IsNullOrEmpty(product.PrimaryAccessKey))
+                product.PrimaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
+            if (string.IsNullOrEmpty(product.SecondaryAccessKey))
+                product.SecondaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
+
             result = await _productRepository.AddAsync(product, cancellationToken);
         }
         else
@@ -87,6 +92,25 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         }
 
         return result;
+    }
+
+    public async Task<ProductDto> RotateProductKeysAsync(Guid productId, CancellationToken cancellationToken = default)
+    {
+        var product = await _productRepository.GetByIdAsync(productId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Product '{productId}' not found.");
+
+        product.SecondaryAccessKey = product.PrimaryAccessKey;
+        product.PrimaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
+
+        await _productRepository.UpdateAsync(product, cancellationToken);
+
+        if (_cacheService != null)
+        {
+            await _cacheService.SetAsync(GetProductCacheKey(productId), product, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.RemoveAsync(GetAllProductsCacheKey(), cancellationToken);
+        }
+
+        return product;
     }
 
     public async Task DeleteProductAsync(Guid id, CancellationToken cancellationToken = default)
@@ -143,6 +167,11 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         EnvironmentDto result;
         if (environment.Id == Guid.Empty)
         {
+            if (string.IsNullOrEmpty(environment.PrimaryAccessKey))
+                environment.PrimaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
+            if (string.IsNullOrEmpty(environment.SecondaryAccessKey))
+                environment.SecondaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
+
             result = await _environmentRepository.AddAsync(environment, cancellationToken);
         }
         else
@@ -159,6 +188,25 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         }
 
         return result;
+    }
+
+    public async Task<EnvironmentDto> RotateEnvironmentKeysAsync(Guid environmentId, CancellationToken cancellationToken = default)
+    {
+        var environment = await _environmentRepository.GetByIdAsync(environmentId, cancellationToken)
+            ?? throw new KeyNotFoundException($"Environment '{environmentId}' not found.");
+
+        environment.SecondaryAccessKey = environment.PrimaryAccessKey;
+        environment.PrimaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
+
+        await _environmentRepository.UpdateAsync(environment, cancellationToken);
+
+        if (_cacheService != null)
+        {
+            await _cacheService.SetAsync(GetEnvironmentCacheKey(environmentId), environment, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.RemoveAsync(GetEnvironmentsByProductCacheKey(environment.ProductId), cancellationToken);
+        }
+
+        return environment;
     }
 
     public async Task DeleteEnvironmentAsync(Guid id, CancellationToken cancellationToken = default)
