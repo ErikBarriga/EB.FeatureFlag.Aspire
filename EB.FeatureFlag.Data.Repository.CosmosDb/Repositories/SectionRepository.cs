@@ -29,10 +29,9 @@ public class SectionRepository : ISectionRepository
         return entities.Select(s => s.ToDto());
     }
 
-    public async Task<SectionDto> AddAsync(SectionDto section, CancellationToken cancellationToken = default)
+    public async Task<SectionDto> AddAsync(SectionDto section, Guid productId, CancellationToken cancellationToken = default)
     {
-        // ProductId is required for partitioning; you may need to pass it explicitly if not present in DTO
-        var entity = section.ToEntity(Guid.Empty); // Replace Guid.Empty with actual ProductId if available
+        var entity = section.ToEntity(productId);
         _dbContext.Sections.Add(entity);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return entity.ToDto();

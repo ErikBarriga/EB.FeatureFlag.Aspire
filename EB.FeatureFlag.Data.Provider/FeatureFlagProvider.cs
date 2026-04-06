@@ -1,5 +1,6 @@
 using EB.FeatureFlag.Data.ICache;
 using EB.FeatureFlag.Data.IProvider;
+using EB.FeatureFlag.Data.IProvider.Validation;
 using EB.FeatureFlag.Data.IRepository.DTOs;
 using EB.FeatureFlag.Data.IRepository.Interfaces;
 
@@ -12,6 +13,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
     private readonly ISectionRepository _sectionRepository;
     private readonly IFeatureKeyRepository _featureKeyRepository;
     private readonly ICacheService? _cacheService;
+    private readonly IFeatureKeyValueValidatorFactory? _validatorFactory;
     private static readonly TimeSpan DefaultCacheExpiration = TimeSpan.FromMinutes(10);
 
     public FeatureFlagProvider(
@@ -19,13 +21,15 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         IEnvironmentRepository environmentRepository,
         ISectionRepository sectionRepository,
         IFeatureKeyRepository featureKeyRepository,
-        ICacheService? cacheService = null)
+        ICacheService? cacheService = null,
+        IFeatureKeyValueValidatorFactory? validatorFactory = null)
     {
         _productRepository = productRepository;
         _environmentRepository = environmentRepository;
         _sectionRepository = sectionRepository;
         _featureKeyRepository = featureKeyRepository;
         _cacheService = cacheService;
+        _validatorFactory = validatorFactory;
     }
 
     // --- Product ---
@@ -267,7 +271,10 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         SectionDto result;
         if (section.Id == Guid.Empty)
         {
-            result = await _sectionRepository.AddAsync(section, cancellationToken);
+            var environment = await _environmentRepository.GetByIdAsync(section.EnvironmentId, cancellationToken)
+                ?? throw new KeyNotFoundException($"Environment '{section.EnvironmentId}' not found.");
+
+            result = await _sectionRepository.AddAsync(section, environment.ProductId, cancellationToken);
         }
         else
         {
@@ -340,10 +347,18 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
     public async Task<FeatureKeyDto> UpsertFeatureKeyAsync(FeatureKeyDto featureKey, CancellationToken cancellationToken = default)
     {
+        _validatorFactory?.Validate(featureKey.Type, featureKey.Value);
+
         FeatureKeyDto result;
         if (featureKey.Id == Guid.Empty)
         {
-            result = await _featureKeyRepository.AddAsync(featureKey, cancellationToken);
+            var section = await _sectionRepository.GetByIdAsync(featureKey.SectionId, cancellationToken)
+                ?? throw new KeyNotFoundException($"Section '{featureKey.SectionId}' not found.");
+
+            var environment = await _environmentRepository.GetByIdAsync(section.EnvironmentId, cancellationToken)
+                ?? throw new KeyNotFoundException($"Environment '{section.EnvironmentId}' not found.");
+
+            result = await _featureKeyRepository.AddAsync(featureKey, section.EnvironmentId, environment.ProductId, cancellationToken);
         }
         else
         {

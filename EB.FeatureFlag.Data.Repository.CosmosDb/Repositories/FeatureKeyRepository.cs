@@ -29,10 +29,9 @@ public class FeatureKeyRepository : IFeatureKeyRepository
         return entities.Select(fk => fk.ToDto());
     }
 
-    public async Task<FeatureKeyDto> AddAsync(FeatureKeyDto featureKey, CancellationToken cancellationToken = default)
+    public async Task<FeatureKeyDto> AddAsync(FeatureKeyDto featureKey, Guid environmentId, Guid productId, CancellationToken cancellationToken = default)
     {
-        // EnvironmentId and ProductId are required for partitioning; you may need to pass them explicitly if not present in DTO
-        var entity = featureKey.ToEntity(Guid.Empty, Guid.Empty); // Replace Guid.Empty with actual EnvironmentId and ProductId if available
+        var entity = featureKey.ToEntity(environmentId, productId);
         _dbContext.FeatureKeys.Add(entity);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return entity.ToDto();

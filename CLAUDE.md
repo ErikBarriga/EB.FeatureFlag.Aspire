@@ -28,7 +28,9 @@ EB.FeatureFlag.Data/                   # Aggregation project
   EB.FeatureFlag.Data.IRepository/     # Repository interfaces + DTOs
   EB.FeatureFlag.Data.Repository.CosmosDb/ # Cosmos DB implementation
   EB.FeatureFlag.Data.IProvider/       # Provider interface + AccessKeyGenerator
+    Validation/                        # IFeatureKeyValueValidator, FeatureKeyValidationException
   EB.FeatureFlag.Data.Provider/        # Provider implementation (cache-aware)
+    Validators/                        # FeatureKey type validators (Boolean, LargeString, etc.)
   EB.FeatureFlag.Data.ICache/          # Cache interface
   EB.FeatureFlag.Data.Cache.InMemory/  # In-memory cache
   EB.FeatureFlag.Data.Cache.Redis/     # Redis cache
@@ -99,10 +101,22 @@ Settings in `ApiService/appsettings.json`:
 - Request models (`CreateProductRequest`, `UpdateProductRequest`, `CreateEnvironmentRequest`, `UpdateEnvironmentRequest`) to avoid exposing DTOs with Access Keys in write operations
 - Removed weather placeholder endpoint
 
+### Completed (Phase 3 - Section/FeatureKey CRUD + Type Validators)
+- Fixed partition key propagation: `ISectionRepository.AddAsync(dto, productId)` and `IFeatureKeyRepository.AddAsync(dto, environmentId, productId)`
+- Provider resolves parent IDs (Environment→ProductId, Section→EnvironmentId→ProductId) before creating entities
+- Feature Key value validation via Strategy pattern:
+  - `IFeatureKeyValueValidator` interface + `IFeatureKeyValueValidatorFactory` for dispatch
+  - `BooleanValueValidator`: only `true`/`false` (bool, string, or JsonElement)
+  - `LargeStringValueValidator`: must be a non-null string
+  - `StringCollectionValueValidator`: must be an array of strings
+  - `JsonCollectionValueValidator`: must be an array of valid JSON objects/strings
+  - `FeatureKeyValidationException` thrown on invalid values → API returns 400 BadRequest
+- Validators handle both native types and `JsonElement` (from API JSON deserialization)
+- Section API endpoints: CRUD under `/api/environments/{environmentId}/sections` and `/api/sections/{id}`
+- FeatureKey API endpoints: CRUD under `/api/sections/{sectionId}/feature-keys` and `/api/feature-keys/{id}`
+- Validators registered in DI via `AddFeatureFlagValidators()` in ServiceCollectionExtensions
+
 ### Not Yet Implemented
-- Section CRUD API endpoints
-- Feature Key CRUD API endpoints
-- Feature Key type validation (boolean, string, collection, JSON)
 - Regex validation for String Collections
 - External source fetching
 - Public consumption endpoint (SDK/client, protected by Access Keys)
@@ -131,17 +145,42 @@ Settings in `ApiService/appsettings.json`:
 | DELETE | `/api/environments/{id}` | Delete environment |
 | POST | `/api/environments/{id}/rotate-keys` | Rotate Access Keys |
 
+### Sections
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/environments/{environmentId}/sections` | List sections by environment |
+| GET | `/api/sections/{id}` | Get section by ID |
+| POST | `/api/environments/{environmentId}/sections` | Create section |
+| PUT | `/api/sections/{id}` | Update section |
+| DELETE | `/api/sections/{id}` | Delete section |
+
+### Feature Keys
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/api/sections/{sectionId}/feature-keys` | List feature keys by section |
+| GET | `/api/feature-keys/{id}` | Get feature key by ID |
+| POST | `/api/sections/{sectionId}/feature-keys` | Create feature key (validates type) |
+| PUT | `/api/feature-keys/{id}` | Update feature key (validates type) |
+| DELETE | `/api/feature-keys/{id}` | Delete feature key |
+
 ## Access Key Security
 - Keys generated via `AccessKeyGenerator` using `RandomNumberGenerator` (32 bytes, Base64)
 - Rotation: current Primary moves to Secondary, new Primary is generated
 - Keys auto-generated on entity creation if not provided
+
+## Feature Key Type Validation
+- Strategy pattern: `IFeatureKeyValueValidator` → one implementation per `FeatureKeyType`
+- `FeatureKeyValueValidatorFactory` dispatches to the correct validator
+- Validators handle both native C# types and `System.Text.Json.JsonElement`
+- To add a new type: create validator class implementing `IFeatureKeyValueValidator`, register in `AddFeatureFlagValidators()`
+- Validation runs in Provider layer before persistence (`UpsertFeatureKeyAsync`)
 
 ## Development Phases
 
 The project follows a 6-stage plan:
 1. ~~Data Modeling~~ ✓ - entities, DTOs, repositories
 2. ~~Product/Environment CRUD + Access Key rotation~~ ✓
-3. Feature Key management + type validators
+3. ~~Feature Key management + type validators~~ ✓
 4. Advanced validations (regex for String Collections)
 5. External sources (dynamic fetching from URLs/APIs)
 6. Public consumption API (protected by Access Keys, with caching)

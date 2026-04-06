@@ -2,8 +2,10 @@ using EB.FeatureFlag.Data.Cache.InMemory;
 using EB.FeatureFlag.Data.Cache.Redis;
 using EB.FeatureFlag.Data.ICache;
 using EB.FeatureFlag.Data.IProvider;
+using EB.FeatureFlag.Data.IProvider.Validation;
 using EB.FeatureFlag.Data.IRepository.Interfaces;
 using EB.FeatureFlag.Data.Provider;
+using EB.FeatureFlag.Data.Provider.Validators;
 using EB.FeatureFlag.Data.Repository.CosmosDb.Context;
 using EB.FeatureFlag.Data.Repository.CosmosDb.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +55,7 @@ public static class ServiceCollectionExtensions
 
         services.AddFeatureFlagRepository(options);
         services.AddFeatureFlagCache(options);
+        services.AddFeatureFlagValidators();
         services.AddFeatureFlagProvider();
 
         return services;
@@ -110,6 +113,17 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    private static IServiceCollection AddFeatureFlagValidators(this IServiceCollection services)
+    {
+        services.AddSingleton<IFeatureKeyValueValidator, BooleanValueValidator>();
+        services.AddSingleton<IFeatureKeyValueValidator, LargeStringValueValidator>();
+        services.AddSingleton<IFeatureKeyValueValidator, StringCollectionValueValidator>();
+        services.AddSingleton<IFeatureKeyValueValidator, JsonCollectionValueValidator>();
+        services.AddSingleton<IFeatureKeyValueValidatorFactory, FeatureKeyValueValidatorFactory>();
+
+        return services;
+    }
+
     private static IServiceCollection AddFeatureFlagProvider(this IServiceCollection services)
     {
         services.AddScoped<IFeatureFlagProvider>(sp =>
@@ -119,9 +133,10 @@ public static class ServiceCollectionExtensions
             var sectionRepo = sp.GetRequiredService<ISectionRepository>();
             var featureKeyRepo = sp.GetRequiredService<IFeatureKeyRepository>();
             var cacheService = sp.GetService<ICacheService>();
+            var validatorFactory = sp.GetService<IFeatureKeyValueValidatorFactory>();
 
             return new FeatureFlagProvider(
-                productRepo, environmentRepo, sectionRepo, featureKeyRepo, cacheService);
+                productRepo, environmentRepo, sectionRepo, featureKeyRepo, cacheService, validatorFactory);
         });
 
         return services;

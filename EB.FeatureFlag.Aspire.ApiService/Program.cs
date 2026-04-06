@@ -37,6 +37,8 @@ if (app.Environment.IsDevelopment())
 // Map Feature Flag endpoints
 app.MapProductEndpoints();
 app.MapEnvironmentEndpoints();
+app.MapSectionEndpoints();
+app.MapFeatureKeyEndpoints();
 
 app.MapDefaultEndpoints();
 
