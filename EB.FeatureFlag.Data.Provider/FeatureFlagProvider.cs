@@ -347,7 +347,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
     public async Task<FeatureKeyDto> UpsertFeatureKeyAsync(FeatureKeyDto featureKey, CancellationToken cancellationToken = default)
     {
-        _validatorFactory?.Validate(featureKey.Type, featureKey.Value);
+        _validatorFactory?.Validate(featureKey.Type, featureKey.Value, featureKey.ValidationRegex);
 
         FeatureKeyDto result;
         if (featureKey.Id == Guid.Empty)

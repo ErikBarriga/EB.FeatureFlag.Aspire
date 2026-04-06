@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using EB.FeatureFlag.Data.IProvider.Validation;
 using EB.FeatureFlag.Data.IRepository.Types;
 
@@ -8,24 +9,52 @@ public class LargeStringValueValidator : IFeatureKeyValueValidator
 {
     public FeatureKeyType SupportedType => FeatureKeyType.LargeString;
 
-    public void Validate(object? value)
+    public void Validate(object? value, string? validationRegex = null)
     {
         if (value is null)
             throw new FeatureKeyValidationException("LargeString value cannot be null.");
 
-        if (value is string)
-            return;
+        string str;
 
-        if (value is JsonElement jsonElement)
+        if (value is string s)
         {
-            if (jsonElement.ValueKind == JsonValueKind.String)
-                return;
+            str = s;
+        }
+        else if (value is JsonElement jsonElement)
+        {
+            if (jsonElement.ValueKind != JsonValueKind.String)
+                throw new FeatureKeyValidationException(
+                    $"LargeString value must be a string. Got JSON '{jsonElement.ValueKind}'.");
 
+            str = jsonElement.GetString()!;
+        }
+        else
+        {
             throw new FeatureKeyValidationException(
-                $"LargeString value must be a string. Got JSON '{jsonElement.ValueKind}'.");
+                $"LargeString value must be a string. Got '{value.GetType().Name}'.");
         }
 
-        throw new FeatureKeyValidationException(
-            $"LargeString value must be a string. Got '{value.GetType().Name}'.");
+        ValidateRegex(str, validationRegex);
+    }
+
+    private static void ValidateRegex(string value, string? validationRegex)
+    {
+        if (string.IsNullOrWhiteSpace(validationRegex))
+            return;
+
+        Regex regex;
+        try
+        {
+            regex = new Regex(validationRegex, RegexOptions.Compiled, TimeSpan.FromSeconds(5));
+        }
+        catch (ArgumentException ex)
+        {
+            throw new FeatureKeyValidationException(
+                $"Invalid validation regex pattern '{validationRegex}': {ex.Message}");
+        }
+
+        if (!regex.IsMatch(value))
+            throw new FeatureKeyValidationException(
+                $"LargeString value does not match the validation pattern '{validationRegex}'.");
     }
 }

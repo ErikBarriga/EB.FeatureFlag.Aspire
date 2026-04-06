@@ -8,7 +8,7 @@ public class BooleanValueValidator : IFeatureKeyValueValidator
 {
     public FeatureKeyType SupportedType => FeatureKeyType.Boolean;
 
-    public void Validate(object? value)
+    public void Validate(object? value, string? validationRegex = null)
     {
         if (value is null)
             throw new FeatureKeyValidationException("Boolean value cannot be null.");

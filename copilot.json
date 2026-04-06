@@ -16,8 +16,10 @@
     "DI is wired via AddFeatureFlagData() from EB.FeatureFlag.Data project. Config keys: FeatureFlag_RepositoryType, FeatureFlag_CacheType, etc.",
     "Provider layer (IFeatureFlagProvider) handles business logic, cache management, key generation/rotation, and value validation.",
     "FeatureKey value validation uses Strategy pattern: IFeatureKeyValueValidator interface per type, dispatched by FeatureKeyValueValidatorFactory.",
+    "Validator signature: Validate(object? value, string? validationRegex = null). LargeStringValueValidator and StringCollectionValueValidator use the regex; others ignore it.",
+    "FeatureKeyDto/Entity has optional ValidationRegex field. Stored in DB, passed through to validators at upsert time.",
     "To add a new FeatureKey type: (1) add enum value, (2) create validator in Provider/Validators/, (3) register in AddFeatureFlagValidators().",
     "Repository AddAsync for Section requires productId param; for FeatureKey requires environmentId + productId. Provider resolves parent IDs automatically.",
-    "Phases 1-3 are complete. Next: Phase 4 (regex validation for StringCollections)."
+    "Phases 1-4 are complete. Next: Phase 5 (external source fetching from URLs/APIs)."
   ]
 }

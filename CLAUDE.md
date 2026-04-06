@@ -116,8 +116,16 @@ Settings in `ApiService/appsettings.json`:
 - FeatureKey API endpoints: CRUD under `/api/sections/{sectionId}/feature-keys` and `/api/feature-keys/{id}`
 - Validators registered in DI via `AddFeatureFlagValidators()` in ServiceCollectionExtensions
 
+### Completed (Phase 4 - Regex Validation for StringCollection)
+- Added `ValidationRegex` optional field to `FeatureKeyDto`, `FeatureKeyEntity`, mapper, repository, and API request models
+- `StringCollectionValueValidator` validates each item against the regex pattern when provided
+- Invalid regex patterns throw `FeatureKeyValidationException` with clear message
+- Regex compiled with `RegexOptions.Compiled` and 5-second timeout for safety
+- Error messages include: item index, item value, and the pattern it failed against
+- `LargeStringValueValidator` also validates the string value against the regex when provided (e.g. email, URL format)
+- Other validators (Boolean, JsonCollection) accept but ignore the regex parameter
+
 ### Not Yet Implemented
-- Regex validation for String Collections
 - External source fetching
 - Public consumption endpoint (SDK/client, protected by Access Keys)
 - Blazor UI for feature flag management
@@ -174,6 +182,8 @@ Settings in `ApiService/appsettings.json`:
 - Validators handle both native C# types and `System.Text.Json.JsonElement`
 - To add a new type: create validator class implementing `IFeatureKeyValueValidator`, register in `AddFeatureFlagValidators()`
 - Validation runs in Provider layer before persistence (`UpsertFeatureKeyAsync`)
+- `ValidationRegex` (optional): regex pattern stored on FeatureKey, used by LargeString (validates the whole string) and StringCollection (validates each item)
+- Validator signature: `Validate(object? value, string? validationRegex = null)`
 
 ## Development Phases
 
@@ -181,6 +191,6 @@ The project follows a 6-stage plan:
 1. ~~Data Modeling~~ ✓ - entities, DTOs, repositories
 2. ~~Product/Environment CRUD + Access Key rotation~~ ✓
 3. ~~Feature Key management + type validators~~ ✓
-4. Advanced validations (regex for String Collections)
+4. ~~Advanced validations (regex for String Collections)~~ ✓
 5. External sources (dynamic fetching from URLs/APIs)
 6. Public consumption API (protected by Access Keys, with caching)

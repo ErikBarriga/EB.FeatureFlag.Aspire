@@ -8,7 +8,7 @@ public class JsonCollectionValueValidator : IFeatureKeyValueValidator
 {
     public FeatureKeyType SupportedType => FeatureKeyType.JsonCollection;
 
-    public void Validate(object? value)
+    public void Validate(object? value, string? validationRegex = null)
     {
         if (value is null)
             throw new FeatureKeyValidationException("JsonCollection value cannot be null.");

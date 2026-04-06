@@ -7,5 +7,5 @@ namespace EB.FeatureFlag.Data.IProvider.Validation;
 /// </summary>
 public interface IFeatureKeyValueValidatorFactory
 {
-    void Validate(FeatureKeyType type, object? value);
+    void Validate(FeatureKeyType type, object? value, string? validationRegex = null);
 }

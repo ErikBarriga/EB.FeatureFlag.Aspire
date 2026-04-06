@@ -9,5 +9,5 @@ namespace EB.FeatureFlag.Data.IProvider.Validation;
 public interface IFeatureKeyValueValidator
 {
     FeatureKeyType SupportedType { get; }
-    void Validate(object? value);
+    void Validate(object? value, string? validationRegex = null);
 }

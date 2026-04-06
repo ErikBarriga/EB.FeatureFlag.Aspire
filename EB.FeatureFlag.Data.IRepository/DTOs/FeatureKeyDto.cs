@@ -11,4 +11,5 @@ public class FeatureKeyDto
     public List<string>? Tags { get; set; }
     public FeatureKeyType Type { get; set; }
     public object? Value { get; set; }
+    public string? ValidationRegex { get; set; }
 }

@@ -78,7 +78,8 @@ public static class EntityDtoMapper
         Description = entity.Description,
         Tags = entity.Tags,
         Type = entity.Type,
-        Value = entity.Value
+        Value = entity.Value,
+        ValidationRegex = entity.ValidationRegex
     };
 
     public static FeatureKeyEntity ToEntity(this FeatureKeyDto dto, Guid environmentId, Guid productId) => new()
@@ -91,6 +92,7 @@ public static class EntityDtoMapper
         Description = dto.Description,
         Tags = dto.Tags,
         Type = dto.Type,
-        Value = dto.Value
+        Value = dto.Value,
+        ValidationRegex = dto.ValidationRegex
     };
 }

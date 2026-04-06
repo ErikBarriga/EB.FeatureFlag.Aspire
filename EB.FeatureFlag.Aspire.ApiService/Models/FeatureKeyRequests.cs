@@ -7,11 +7,13 @@ public record CreateFeatureKeyRequest(
     FeatureKeyType Type,
     object? Value,
     string? Description = null,
-    List<string>? Tags = null);
+    List<string>? Tags = null,
+    string? ValidationRegex = null);
 
 public record UpdateFeatureKeyRequest(
     string Name,
     FeatureKeyType Type,
     object? Value,
     string? Description = null,
-    List<string>? Tags = null);
+    List<string>? Tags = null,
+    string? ValidationRegex = null);
