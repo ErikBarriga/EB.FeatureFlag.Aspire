@@ -1,0 +1,129 @@
+using EB.FeatureFlag.Data.Cache.InMemory;
+using EB.FeatureFlag.Data.Cache.Redis;
+using EB.FeatureFlag.Data.ICache;
+using EB.FeatureFlag.Data.IProvider;
+using EB.FeatureFlag.Data.IRepository.Interfaces;
+using EB.FeatureFlag.Data.Provider;
+using EB.FeatureFlag.Data.Repository.CosmosDb.Context;
+using EB.FeatureFlag.Data.Repository.CosmosDb.Repositories;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace EB.FeatureFlag.Data;
+
+public static class ServiceCollectionExtensions
+{
+    /// <summary>
+    /// Registers all Feature Flag data services: repository, cache (optional), and provider.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configure">Action to configure <see cref="FeatureFlagDataOptions"/>.</param>
+    /// <example>
+    /// // Cosmos DB + Redis cache:
+    /// builder.Services.AddFeatureFlagData(options =>
+    /// {
+    ///     options.RepositoryType = FeatureFlagRepositoryType.Cosmos;
+    ///     options.RepositoryConnectionString = "AccountEndpoint=https://...;AccountKey=...";
+    ///     options.CacheType = FeatureFlagCacheType.Redis;
+    ///     options.CacheConnectionString = "localhost:6379";
+    /// });
+    ///
+    /// // Cosmos DB + In-Memory cache (no connection string needed):
+    /// builder.Services.AddFeatureFlagData(options =>
+    /// {
+    ///     options.RepositoryType = FeatureFlagRepositoryType.Cosmos;
+    ///     options.RepositoryConnectionString = "AccountEndpoint=https://...;AccountKey=...";
+    ///     options.CacheType = FeatureFlagCacheType.InMemory;
+    /// });
+    ///
+    /// // Cosmos DB without cache:
+    /// builder.Services.AddFeatureFlagData(options =>
+    /// {
+    ///     options.RepositoryType = FeatureFlagRepositoryType.Cosmos;
+    ///     options.RepositoryConnectionString = "AccountEndpoint=https://...;AccountKey=...";
+    ///     // CacheType defaults to FeatureFlagCacheType.None
+    /// });
+    /// </example>
+    public static IServiceCollection AddFeatureFlagData(
+        this IServiceCollection services,
+        Action<FeatureFlagDataOptions> configure)
+    {
+        var options = new FeatureFlagDataOptions();
+        configure(options);
+
+        services.AddFeatureFlagRepository(options);
+        services.AddFeatureFlagCache(options);
+        services.AddFeatureFlagProvider();
+
+        return services;
+    }
+
+    private static IServiceCollection AddFeatureFlagRepository(
+        this IServiceCollection services,
+        FeatureFlagDataOptions options)
+    {
+        switch (options.RepositoryType)
+        {
+            case FeatureFlagRepositoryType.Cosmos:
+                services.AddDbContext<FeatureFlagCosmosDbContext>(dbOptions =>
+                    dbOptions.UseCosmos(
+                        options.RepositoryConnectionString,
+                        databaseName: "FeatureFlagDb"));
+
+                services.AddScoped<IProductRepository, ProductRepository>();
+                services.AddScoped<IEnvironmentRepository, EnvironmentRepository>();
+                services.AddScoped<ISectionRepository, SectionRepository>();
+                services.AddScoped<IFeatureKeyRepository, FeatureKeyRepository>();
+                break;
+
+            default:
+                throw new NotSupportedException(
+                    $"Repository type '{options.RepositoryType}' is not supported.");
+        }
+
+        return services;
+    }
+
+    private static IServiceCollection AddFeatureFlagCache(
+        this IServiceCollection services,
+        FeatureFlagDataOptions options)
+    {
+        switch (options.CacheType)
+        {
+            case FeatureFlagCacheType.None:
+                break;
+
+            case FeatureFlagCacheType.InMemory:
+                services.AddSingleton<ICacheService, InMemoryCacheService>();
+                break;
+
+            case FeatureFlagCacheType.Redis:
+                services.AddSingleton<ICacheService>(
+                    _ => new RedisCacheService(options.CacheConnectionString));
+                break;
+
+            default:
+                throw new NotSupportedException(
+                    $"Cache type '{options.CacheType}' is not supported.");
+        }
+
+        return services;
+    }
+
+    private static IServiceCollection AddFeatureFlagProvider(this IServiceCollection services)
+    {
+        services.AddScoped<IFeatureFlagProvider>(sp =>
+        {
+            var productRepo = sp.GetRequiredService<IProductRepository>();
+            var environmentRepo = sp.GetRequiredService<IEnvironmentRepository>();
+            var sectionRepo = sp.GetRequiredService<ISectionRepository>();
+            var featureKeyRepo = sp.GetRequiredService<IFeatureKeyRepository>();
+            var cacheService = sp.GetService<ICacheService>();
+
+            return new FeatureFlagProvider(
+                productRepo, environmentRepo, sectionRepo, featureKeyRepo, cacheService);
+        });
+
+        return services;
+    }
+}
