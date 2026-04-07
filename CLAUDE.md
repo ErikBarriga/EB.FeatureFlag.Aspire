@@ -10,6 +10,7 @@ Multitenant feature flag system:
 
 ## Key Principles
 - Layered architecture: Repository → Provider → API
+- Hierarchy: Product → Sections & Environments (sections are product-level)
 - Cosmos partition key: `ProductId`
 - Enums explicit as `int`
 - C# 12+ patterns, strong typing, no placeholders
@@ -23,13 +24,13 @@ Multitenant feature flag system:
 - `FeatureFlag_CacheConnectionString`
 
 ## Status
-- Phases 1-6 completed: models, repos, cache, provider, key rotation, validators, regex, external sources, public SDK API
-- Pending: Blazor management UI, tests
+- Phases 1-7 completed: models, repos, cache, provider, key rotation, validators, regex, external sources, SDK API, Blazor UI
+- Pending: security/roles, tests
 
 ## Main Endpoints
 - `GET/POST/PUT/DELETE /api/products`, `POST /api/products/{id}/rotate-keys`
 - `GET/POST/PUT/DELETE /api/products/{productId}/environments`, `POST /api/environments/{id}/rotate-keys`
-- `GET/POST/PUT/DELETE /api/environments/{environmentId}/sections`
+- `GET/POST/PUT/DELETE /api/products/{productId}/sections`, `GET/PUT/DELETE /api/sections/{id}`
 - `GET/POST/PUT/DELETE /api/sections/{sectionId}/feature-keys`, `GET/PUT/DELETE /api/feature-keys/{id}`
 
 ## SDK Endpoint (Phase 6)

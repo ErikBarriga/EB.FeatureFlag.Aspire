@@ -1,0 +1,203 @@
+@page "/products"
+@rendermode InteractiveServer
+@inject FeatureFlagApiClient Api
+
+<PageTitle>Products</PageTitle>
+
+<h1>Products</h1>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        @_error
+        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+    </div>
+}
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="ShowCreate">+ New Product</button>
+</div>
+
+@if (_products is null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (_products.Count == 0)
+{
+    <p>No products found.</p>
+}
+else
+{
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Description</th>
+                <th>Tags</th>
+                <th style="width:300px">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in _products)
+            {
+                <tr>
+                    <td>@p.Name</td>
+                    <td>@p.Description</td>
+                    <td>@(p.Tags is not null ? string.Join(", ", p.Tags) : "")</td>
+                    <td>
+                        <a href="/products/@p.Id/environments" class="btn btn-sm btn-outline-primary">Environments</a>
+                        <a href="/products/@p.Id/sections" class="btn btn-sm btn-outline-primary">Sections</a>
+                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEdit(p)">Edit</button>
+                        <button class="btn btn-sm btn-outline-warning" @onclick="() => RotateKeys(p.Id)">Rotate Keys</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(p.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (_showKeys is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Access Keys - @_showKeys.Name</h5>
+                    <button type="button" class="btn-close" @onclick="() => _showKeys = null"></button>
+                </div>
+                <div class="modal-body">
+                    <p><strong>Primary:</strong> <code>@_showKeys.PrimaryAccessKey</code></p>
+                    <p><strong>Secondary:</strong> <code>@_showKeys.SecondaryAccessKey</code></p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showForm)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editId.HasValue ? "Edit" : "Create") Product</h5>
+                    <button type="button" class="btn-close" @onclick="CloseForm"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input class="form-control" @bind="_formName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <input class="form-control" @bind="_formDescription" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tags (comma separated)</label>
+                        <input class="form-control" @bind="_formTags" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseForm">Cancel</button>
+                    <button class="btn btn-primary" @onclick="SaveProduct" disabled="@_saving">
+                        @(_saving ? "Saving..." : "Save")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<ProductModel>? _products;
+    private string? _error;
+    private ProductModel? _showKeys;
+
+    // Form state
+    private bool _showForm;
+    private bool _saving;
+    private Guid? _editId;
+    private string _formName = string.Empty;
+    private string? _formDescription;
+    private string? _formTags;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProducts();
+    }
+
+    private async Task LoadProducts()
+    {
+        try { _products = await Api.GetProductsAsync(); }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private void ShowCreate()
+    {
+        _editId = null;
+        _formName = string.Empty;
+        _formDescription = null;
+        _formTags = null;
+        _showForm = true;
+    }
+
+    private void ShowEdit(ProductModel p)
+    {
+        _editId = p.Id;
+        _formName = p.Name;
+        _formDescription = p.Description;
+        _formTags = p.Tags is not null ? string.Join(", ", p.Tags) : null;
+        _showForm = true;
+    }
+
+    private void CloseForm() => _showForm = false;
+
+    private async Task SaveProduct()
+    {
+        _saving = true;
+        _error = null;
+        try
+        {
+            var tags = string.IsNullOrWhiteSpace(_formTags)
+                ? null
+                : _formTags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+            var request = new { Name = _formName, Description = _formDescription, Tags = tags };
+
+            if (_editId.HasValue)
+                await Api.UpdateProductAsync(_editId.Value, request);
+            else
+                await Api.CreateProductAsync(request);
+
+            _showForm = false;
+            await LoadProducts();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task Delete(Guid id)
+    {
+        _error = null;
+        try
+        {
+            await Api.DeleteProductAsync(id);
+            await LoadProducts();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private async Task RotateKeys(Guid id)
+    {
+        _error = null;
+        try
+        {
+            var result = await Api.RotateProductKeysAsync(id);
+            if (result is not null)
+                _showKeys = result;
+            await LoadProducts();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+}

@@ -21,17 +21,17 @@ public class SectionRepository : ISectionRepository
         return entity?.ToDto();
     }
 
-    public async Task<IEnumerable<SectionDto>> GetByEnvironmentIdAsync(Guid environmentId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<SectionDto>> GetByProductIdAsync(Guid productId, CancellationToken cancellationToken = default)
     {
         var entities = await _dbContext.Sections
-            .Where(s => s.EnvironmentId == environmentId)
+            .Where(s => s.ProductId == productId)
             .ToListAsync(cancellationToken);
         return entities.Select(s => s.ToDto());
     }
 
-    public async Task<SectionDto> AddAsync(SectionDto section, Guid productId, CancellationToken cancellationToken = default)
+    public async Task<SectionDto> AddAsync(SectionDto section, CancellationToken cancellationToken = default)
     {
-        var entity = section.ToEntity(productId);
+        var entity = section.ToEntity();
         _dbContext.Sections.Add(entity);
         await _dbContext.SaveChangesAsync(cancellationToken);
         return entity.ToDto();
@@ -41,7 +41,6 @@ public class SectionRepository : ISectionRepository
     {
         var entity = await _dbContext.Sections.FindAsync(new object[] { section.Id }, cancellationToken);
         if (entity == null) return;
-        entity.EnvironmentId = section.EnvironmentId;
         entity.Name = section.Name;
         entity.Description = section.Description;
         entity.Tags = section.Tags;

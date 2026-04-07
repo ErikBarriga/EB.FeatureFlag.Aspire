@@ -1,7 +1,139 @@
-﻿@page "/"
+@page "/"
+@rendermode InteractiveServer
+@inject FeatureFlagApiClient Api
 
-<PageTitle>Home</PageTitle>
+<PageTitle>EB Feature Flag System</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="mb-4">
+    <h1>EB Feature Flag System</h1>
+    <p class="lead text-muted">Multitenant feature flag management platform</p>
+</div>
 
-Welcome to your new app.
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100 border-primary">
+            <div class="card-body text-center">
+                <h2 class="display-4 text-primary">@_productCount</h2>
+                <h5 class="card-title">Products</h5>
+                <p class="card-text text-muted">Registered products using the feature flag system</p>
+                <a href="/products" class="btn btn-outline-primary">Manage Products</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-success">
+            <div class="card-body text-center">
+                <h2 class="display-4 text-success">@_environmentCount</h2>
+                <h5 class="card-title">Environments</h5>
+                <p class="card-text text-muted">Active environments across all products</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100 border-info">
+            <div class="card-body text-center">
+                <h2 class="display-4 text-info">@_featureKeyCount</h2>
+                <h5 class="card-title">Feature Keys</h5>
+                <p class="card-text text-muted">Total feature flags configured</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (_products is not null && _products.Count > 0)
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Products Overview</h5>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Description</th>
+                        <th>Environments</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in _products)
+                    {
+                        <tr>
+                            <td><strong>@p.Name</strong></td>
+                            <td class="text-muted">@(p.Description ?? "-")</td>
+                            <td>@(_envCounts.GetValueOrDefault(p.Id, 0))</td>
+                            <td><a href="/products/@p.Id/environments" class="btn btn-sm btn-outline-primary">View</a></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header"><h5 class="mb-0">SDK Integration</h5></div>
+            <div class="card-body">
+                <p>Consume feature flags from your applications via the SDK endpoint:</p>
+                <pre class="bg-light p-3 rounded"><code>GET /api/sdk/feature-flags
+Headers:
+  X-Product-Key: &lt;your-product-key&gt;
+  X-Environment-Key: &lt;your-environment-key&gt;</code></pre>
+                <p class="text-muted mb-0">Access keys are generated when creating products and environments. Use <strong>Rotate Keys</strong> to regenerate them.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header"><h5 class="mb-0">Architecture</h5></div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2"><strong>Products</strong> — Top-level tenants with access keys</li>
+                    <li class="mb-2"><strong>Environments</strong> — Dev, Staging, Production per product</li>
+                    <li class="mb-2"><strong>Sections</strong> — Logical grouping of feature flags</li>
+                    <li class="mb-2"><strong>Feature Keys</strong> — Boolean, String, Collection, or JSON values</li>
+                    <li class="text-muted">Supports external value sources, validation regex, and key rotation</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ProductModel>? _products;
+    private Dictionary<Guid, int> _envCounts = new();
+    private int _productCount;
+    private int _environmentCount;
+    private int _featureKeyCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _products = await Api.GetProductsAsync();
+            _productCount = _products.Count;
+
+            foreach (var p in _products)
+            {
+                var envs = await Api.GetEnvironmentsAsync(p.Id);
+                var envList = envs.ToList();
+                _envCounts[p.Id] = envList.Count;
+                _environmentCount += envList.Count;
+
+                var sections = await Api.GetSectionsByProductAsync(p.Id);
+                foreach (var section in sections)
+                {
+                    var keys = await Api.GetFeatureKeysAsync(section.Id);
+                    _featureKeyCount += keys.Count;
+                }
+            }
+        }
+        catch
+        {
+            // Dashboard loads gracefully even if API is unavailable
+        }
+    }
+}

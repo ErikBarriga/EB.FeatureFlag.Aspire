@@ -28,7 +28,7 @@ public interface IFeatureFlagProvider
 
     // Section operations
     Task<SectionDto?> GetSectionByIdAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<IEnumerable<SectionDto>> GetSectionsByEnvironmentIdAsync(Guid environmentId, CancellationToken cancellationToken = default);
+    Task<IEnumerable<SectionDto>> GetSectionsByProductIdAsync(Guid productId, CancellationToken cancellationToken = default);
     Task<SectionDto> UpsertSectionAsync(SectionDto section, CancellationToken cancellationToken = default);
     Task DeleteSectionAsync(Guid id, CancellationToken cancellationToken = default);
 

@@ -234,7 +234,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
     // --- Section ---
     private static string GetSectionCacheKey(Guid id) => $"FeatureFlag:Section:{id}";
-    private static string GetSectionsByEnvironmentCacheKey(Guid environmentId) => $"FeatureFlag:Section:ByEnvironment:{environmentId}";
+    private static string GetSectionsByProductCacheKey(Guid productId) => $"FeatureFlag:Section:ByProduct:{productId}";
 
     public async Task<SectionDto?> GetSectionByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
@@ -253,9 +253,9 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         return section;
     }
 
-    public async Task<IEnumerable<SectionDto>> GetSectionsByEnvironmentIdAsync(Guid environmentId, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<SectionDto>> GetSectionsByProductIdAsync(Guid productId, CancellationToken cancellationToken = default)
     {
-        var cacheKey = GetSectionsByEnvironmentCacheKey(environmentId);
+        var cacheKey = GetSectionsByProductCacheKey(productId);
         if (_cacheService != null)
         {
             var cached = await _cacheService.GetAsync<IEnumerable<SectionDto>>(cacheKey, cancellationToken);
@@ -263,7 +263,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
                 return cached;
         }
 
-        var sections = await _sectionRepository.GetByEnvironmentIdAsync(environmentId, cancellationToken);
+        var sections = await _sectionRepository.GetByProductIdAsync(productId, cancellationToken);
         if (_cacheService != null)
             await _cacheService.SetAsync(cacheKey, sections, DefaultCacheExpiration, cancellationToken);
 
@@ -275,10 +275,10 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         SectionDto result;
         if (section.Id == Guid.Empty)
         {
-            var environment = await _environmentRepository.GetByIdAsync(section.EnvironmentId, cancellationToken)
-                ?? throw new KeyNotFoundException($"Environment '{section.EnvironmentId}' not found.");
+            var product = await _productRepository.GetByIdAsync(section.ProductId, cancellationToken)
+                ?? throw new KeyNotFoundException($"Product '{section.ProductId}' not found.");
 
-            result = await _sectionRepository.AddAsync(section, environment.ProductId, cancellationToken);
+            result = await _sectionRepository.AddAsync(section, cancellationToken);
         }
         else
         {
@@ -290,7 +290,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         {
             var cacheKey = GetSectionCacheKey(result.Id);
             await _cacheService.SetAsync(cacheKey, result, DefaultCacheExpiration, cancellationToken);
-            await _cacheService.RemoveAsync(GetSectionsByEnvironmentCacheKey(result.EnvironmentId), cancellationToken);
+            await _cacheService.RemoveAsync(GetSectionsByProductCacheKey(result.ProductId), cancellationToken);
         }
 
         return result;
@@ -307,7 +307,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         if (_cacheService != null)
         {
             await _cacheService.RemoveAsync(GetSectionCacheKey(id), cancellationToken);
-            await _cacheService.RemoveAsync(GetSectionsByEnvironmentCacheKey(section.EnvironmentId), cancellationToken);
+            await _cacheService.RemoveAsync(GetSectionsByProductCacheKey(section.ProductId), cancellationToken);
         }
     }
 
@@ -365,10 +365,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
             var section = await _sectionRepository.GetByIdAsync(featureKey.SectionId, cancellationToken)
                 ?? throw new KeyNotFoundException($"Section '{featureKey.SectionId}' not found.");
 
-            var environment = await _environmentRepository.GetByIdAsync(section.EnvironmentId, cancellationToken)
-                ?? throw new KeyNotFoundException($"Environment '{section.EnvironmentId}' not found.");
-
-            result = await _featureKeyRepository.AddAsync(featureKey, section.EnvironmentId, environment.ProductId, cancellationToken);
+            result = await _featureKeyRepository.AddAsync(featureKey, section.ProductId, section.ProductId, cancellationToken);
         }
         else
         {
@@ -426,7 +423,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         }
 
         // Build response: all sections with their feature keys
-        var sections = await _sectionRepository.GetByEnvironmentIdAsync(environment.Id, cancellationToken);
+        var sections = await _sectionRepository.GetByProductIdAsync(product.Id, cancellationToken);
         var result = new List<SdkSectionFlagsDto>();
 
         foreach (var section in sections)

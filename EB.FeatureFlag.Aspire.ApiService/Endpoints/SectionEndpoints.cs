@@ -11,12 +11,12 @@ public static class SectionEndpoints
         var group = app.MapGroup("/api")
             .WithTags("Sections");
 
-        group.MapGet("/environments/{environmentId:guid}/sections", async (Guid environmentId, IFeatureFlagProvider provider, CancellationToken ct) =>
+        group.MapGet("/products/{productId:guid}/sections", async (Guid productId, IFeatureFlagProvider provider, CancellationToken ct) =>
         {
-            var sections = await provider.GetSectionsByEnvironmentIdAsync(environmentId, ct);
+            var sections = await provider.GetSectionsByProductIdAsync(productId, ct);
             return Results.Ok(sections);
         })
-        .WithName("GetSectionsByEnvironment");
+        .WithName("GetSectionsByProduct");
 
         group.MapGet("/sections/{id:guid}", async (Guid id, IFeatureFlagProvider provider, CancellationToken ct) =>
         {
@@ -25,11 +25,11 @@ public static class SectionEndpoints
         })
         .WithName("GetSectionById");
 
-        group.MapPost("/environments/{environmentId:guid}/sections", async (Guid environmentId, CreateSectionRequest request, IFeatureFlagProvider provider, CancellationToken ct) =>
+        group.MapPost("/products/{productId:guid}/sections", async (Guid productId, CreateSectionRequest request, IFeatureFlagProvider provider, CancellationToken ct) =>
         {
             var dto = new SectionDto
             {
-                EnvironmentId = environmentId,
+                ProductId = productId,
                 Name = request.Name,
                 Description = request.Description,
                 Tags = request.Tags

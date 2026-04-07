@@ -53,17 +53,16 @@ public static class EntityDtoMapper
     public static SectionDto ToDto(this SectionEntity entity) => new()
     {
         Id = entity.Id,
-        EnvironmentId = entity.EnvironmentId,
+        ProductId = entity.ProductId,
         Name = entity.Name,
         Description = entity.Description,
         Tags = entity.Tags
     };
 
-    public static SectionEntity ToEntity(this SectionDto dto, Guid productId) => new()
+    public static SectionEntity ToEntity(this SectionDto dto) => new()
     {
         Id = dto.Id,
-        EnvironmentId = dto.EnvironmentId,
-        ProductId = productId,
+        ProductId = dto.ProductId,
         Name = dto.Name,
         Description = dto.Description,
         Tags = dto.Tags

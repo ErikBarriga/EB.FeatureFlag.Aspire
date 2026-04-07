@@ -1,0 +1,233 @@
+@page "/products/{ProductId:guid}/sections"
+@page "/sections"
+@rendermode InteractiveServer
+@inject FeatureFlagApiClient Api
+
+<PageTitle>Sections</PageTitle>
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="/products">Products</a></li>
+        @if (_productName is not null)
+        {
+            <li class="breadcrumb-item active">@_productName - Sections</li>
+        }
+    </ol>
+</nav>
+
+<h1>Sections</h1>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        @_error
+        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+    </div>
+}
+
+@if (ProductId == Guid.Empty)
+{
+    <div class="mb-3">
+        <label class="form-label"><strong>Select a Product</strong></label>
+        <select class="form-select" style="max-width:400px" @onchange="OnProductSelected">
+            <option value="">-- Choose a product --</option>
+            @if (_products is not null)
+            {
+                @foreach (var p in _products)
+                {
+                    <option value="@p.Id">@p.Name</option>
+                }
+            }
+        </select>
+    </div>
+}
+
+@if (_selectedProductId != Guid.Empty)
+{
+    <div class="mb-3">
+        <button class="btn btn-primary" @onclick="ShowCreate">+ New Section</button>
+    </div>
+
+    @if (_sections is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else if (_sections.Count == 0)
+    {
+        <p>No sections found.</p>
+    }
+    else
+    {
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Tags</th>
+                    <th style="width:240px">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in _sections)
+                {
+                    <tr>
+                        <td>@s.Name</td>
+                        <td>@s.Description</td>
+                        <td>@(s.Tags is not null ? string.Join(", ", s.Tags) : "")</td>
+                        <td>
+                            <a href="/sections/@s.Id/feature-keys" class="btn btn-sm btn-outline-primary">Feature Keys</a>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEdit(s)">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(s.Id)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@if (_showForm)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@(_editId.HasValue ? "Edit" : "Create") Section</h5>
+                    <button type="button" class="btn-close" @onclick="CloseForm"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input class="form-control" @bind="_formName" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <input class="form-control" @bind="_formDescription" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tags (comma separated)</label>
+                        <input class="form-control" @bind="_formTags" />
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CloseForm">Cancel</button>
+                    <button class="btn btn-primary" @onclick="Save" disabled="@_saving">
+                        @(_saving ? "Saving..." : "Save")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid ProductId { get; set; }
+
+    private Guid _selectedProductId;
+    private List<ProductModel>? _products;
+    private List<SectionModel>? _sections;
+    private string? _productName;
+    private string? _error;
+
+    private bool _showForm;
+    private bool _saving;
+    private Guid? _editId;
+    private string _formName = string.Empty;
+    private string? _formDescription;
+    private string? _formTags;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (ProductId != Guid.Empty)
+        {
+            _selectedProductId = ProductId;
+            var product = await Api.GetProductAsync(ProductId);
+            _productName = product?.Name;
+            await LoadSections();
+        }
+        else
+        {
+            try { _products = await Api.GetProductsAsync(); }
+            catch (Exception ex) { _error = ex.Message; }
+        }
+    }
+
+    private async Task OnProductSelected(ChangeEventArgs e)
+    {
+        _sections = null;
+        _productName = null;
+
+        if (Guid.TryParse(e.Value?.ToString(), out var productId) && productId != Guid.Empty)
+        {
+            _selectedProductId = productId;
+            var product = _products?.FirstOrDefault(p => p.Id == productId);
+            _productName = product?.Name;
+            await LoadSections();
+        }
+        else
+        {
+            _selectedProductId = Guid.Empty;
+        }
+    }
+
+    private async Task LoadSections()
+    {
+        try { _sections = await Api.GetSectionsByProductAsync(_selectedProductId); }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+
+    private void ShowCreate()
+    {
+        _editId = null;
+        _formName = string.Empty;
+        _formDescription = null;
+        _formTags = null;
+        _showForm = true;
+    }
+
+    private void ShowEdit(SectionModel s)
+    {
+        _editId = s.Id;
+        _formName = s.Name;
+        _formDescription = s.Description;
+        _formTags = s.Tags is not null ? string.Join(", ", s.Tags) : null;
+        _showForm = true;
+    }
+
+    private void CloseForm() => _showForm = false;
+
+    private async Task Save()
+    {
+        _saving = true;
+        _error = null;
+        try
+        {
+            var tags = string.IsNullOrWhiteSpace(_formTags)
+                ? null
+                : _formTags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+            var request = new { Name = _formName, Description = _formDescription, Tags = tags };
+
+            if (_editId.HasValue)
+                await Api.UpdateSectionAsync(_editId.Value, request);
+            else
+                await Api.CreateSectionAsync(_selectedProductId, request);
+
+            _showForm = false;
+            await LoadSections();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task Delete(Guid id)
+    {
+        _error = null;
+        try
+        {
+            await Api.DeleteSectionAsync(id);
+            await LoadSections();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+    }
+}
