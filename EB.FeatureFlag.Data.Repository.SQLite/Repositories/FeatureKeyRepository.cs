@@ -1,6 +1,7 @@
 using EB.FeatureFlag.Data.IRepository.DTOs;
 using EB.FeatureFlag.Data.IRepository.Interfaces;
 using EB.FeatureFlag.Data.Repository.SQLite.Context;
+using EB.FeatureFlag.Data.Repository.SQLite.Entities;
 using EB.FeatureFlag.Data.Repository.SQLite.Mappings;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,7 +18,10 @@ public class FeatureKeyRepository : IFeatureKeyRepository
 
     public async Task<FeatureKeyDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var entity = await _dbContext.FeatureKeys.FindAsync(new object[] { id }, cancellationToken);
+        var entity = await _dbContext.FeatureKeys
+            .Include(fk => fk.ExternalConfig)
+            .ThenInclude(ec => ec.Headers)
+            .FirstOrDefaultAsync(fk => fk.Id == id, cancellationToken);
         return entity?.ToDto();
     }
 
@@ -25,6 +29,8 @@ public class FeatureKeyRepository : IFeatureKeyRepository
     {
         var entities = await _dbContext.FeatureKeys
             .Where(fk => fk.SectionId == sectionId)
+            .Include(fk => fk.ExternalConfig)
+            .ThenInclude(ec => ec.Headers)
             .ToListAsync(cancellationToken);
         return entities.Select(fk => fk.ToDto());
     }
@@ -39,8 +45,12 @@ public class FeatureKeyRepository : IFeatureKeyRepository
 
     public async Task UpdateAsync(FeatureKeyDto featureKey, CancellationToken cancellationToken = default)
     {
-        var entity = await _dbContext.FeatureKeys.FindAsync(new object[] { featureKey.Id }, cancellationToken);
+        var entity = await _dbContext.FeatureKeys
+            .Include(fk => fk.ExternalConfig)
+            .ThenInclude(ec => ec.Headers)
+            .FirstOrDefaultAsync(fk => fk.Id == featureKey.Id, cancellationToken);
         if (entity == null) return;
+
         entity.SectionId = featureKey.SectionId;
         entity.Name = featureKey.Name;
         entity.Description = featureKey.Description;
@@ -48,7 +58,40 @@ public class FeatureKeyRepository : IFeatureKeyRepository
         entity.Type = featureKey.Type;
         entity.Value = featureKey.Value;
         entity.ValidationRegex = featureKey.ValidationRegex;
-        entity.ExternalConfig = featureKey.ExternalConfig;
+
+        // Handle ExternalConfig conversion
+        if (featureKey.ExternalConfig != null)
+        {
+            if (entity.ExternalConfig == null)
+            {
+                entity.ExternalConfig = featureKey.ExternalConfig.ToEntity(entity.Id);
+            }
+            else
+            {
+                // Update existing config
+                entity.ExternalConfig.Endpoint = featureKey.ExternalConfig.Url;
+
+                // Update headers
+                if (featureKey.ExternalConfig.Headers != null)
+                {
+                    _dbContext.ExternalSourceHeaders.RemoveRange(entity.ExternalConfig.Headers);
+                    entity.ExternalConfig.Headers = featureKey.ExternalConfig.Headers
+                        .Select(kvp => new ExternalSourceHeaderEntity
+                        {
+                            Id = Guid.NewGuid(),
+                            ConfigId = entity.ExternalConfig.Id,
+                            Key = kvp.Key,
+                            Value = kvp.Value
+                        })
+                        .ToList();
+                }
+            }
+        }
+        else if (entity.ExternalConfig != null)
+        {
+            _dbContext.ExternalSourceConfigs.Remove(entity.ExternalConfig);
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

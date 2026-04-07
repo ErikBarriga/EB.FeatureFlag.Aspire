@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/EB.FeatureFlag.Aspire.ApiService/featureflag.db
+/EB.FeatureFlag.Aspire.ApiService/featureflag.db-shm
+/EB.FeatureFlag.Aspire.ApiService/featureflag.db-wal

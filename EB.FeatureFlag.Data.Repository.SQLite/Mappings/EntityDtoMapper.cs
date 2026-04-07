@@ -69,6 +69,33 @@ public static class EntityDtoMapper
         Tags = dto.Tags
     };
 
+    // ExternalSourceConfig
+    public static ExternalSourceConfigDto ToDto(this ExternalSourceConfigEntity entity) => new()
+    {
+        Url = entity.Endpoint,
+        Method = "GET",
+        Headers = entity.Headers?.ToDictionary(h => h.Key, h => h.Value),
+        Auth = null,
+        MappingPath = null,
+        Body = null,
+        ContentType = null
+    };
+
+    public static ExternalSourceConfigEntity ToEntity(this ExternalSourceConfigDto dto, Guid featureKeyId) => new()
+    {
+        Id = Guid.NewGuid(),
+        FeatureKeyId = featureKeyId,
+        Source = "External",
+        Endpoint = dto.Url,
+        AuthToken = null,
+        Headers = dto.Headers?.Select(kvp => new ExternalSourceHeaderEntity
+        {
+            Id = Guid.NewGuid(),
+            Key = kvp.Key,
+            Value = kvp.Value
+        }).ToList() ?? []
+    };
+
     // FeatureKey
     public static FeatureKeyDto ToDto(this FeatureKeyEntity entity) => new()
     {
@@ -80,7 +107,7 @@ public static class EntityDtoMapper
         Type = entity.Type,
         Value = entity.Value,
         ValidationRegex = entity.ValidationRegex,
-        ExternalConfig = entity.ExternalConfig
+        ExternalConfig = entity.ExternalConfig?.ToDto()
     };
 
     public static FeatureKeyEntity ToEntity(this FeatureKeyDto dto, Guid environmentId, Guid productId) => new()
@@ -95,6 +122,6 @@ public static class EntityDtoMapper
         Type = dto.Type,
         Value = dto.Value,
         ValidationRegex = dto.ValidationRegex,
-        ExternalConfig = dto.ExternalConfig
+        ExternalConfig = dto.ExternalConfig != null ? dto.ExternalConfig.ToEntity(dto.Id) : null
     };
 }
