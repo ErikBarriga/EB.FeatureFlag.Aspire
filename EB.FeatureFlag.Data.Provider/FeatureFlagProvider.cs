@@ -1,5 +1,6 @@
 using EB.FeatureFlag.Data.ICache;
 using EB.FeatureFlag.Data.IProvider;
+using EB.FeatureFlag.Data.IProvider.ExternalSource;
 using EB.FeatureFlag.Data.IProvider.Validation;
 using EB.FeatureFlag.Data.IRepository.DTOs;
 using EB.FeatureFlag.Data.IRepository.Interfaces;
@@ -14,6 +15,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
     private readonly IFeatureKeyRepository _featureKeyRepository;
     private readonly ICacheService? _cacheService;
     private readonly IFeatureKeyValueValidatorFactory? _validatorFactory;
+    private readonly IExternalSourceService? _externalSourceService;
     private static readonly TimeSpan DefaultCacheExpiration = TimeSpan.FromMinutes(10);
 
     public FeatureFlagProvider(
@@ -22,7 +24,8 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         ISectionRepository sectionRepository,
         IFeatureKeyRepository featureKeyRepository,
         ICacheService? cacheService = null,
-        IFeatureKeyValueValidatorFactory? validatorFactory = null)
+        IFeatureKeyValueValidatorFactory? validatorFactory = null,
+        IExternalSourceService? externalSourceService = null)
     {
         _productRepository = productRepository;
         _environmentRepository = environmentRepository;
@@ -30,6 +33,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         _featureKeyRepository = featureKeyRepository;
         _cacheService = cacheService;
         _validatorFactory = validatorFactory;
+        _externalSourceService = externalSourceService;
     }
 
     // --- Product ---
@@ -322,6 +326,8 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         }
 
         var featureKey = await _featureKeyRepository.GetByIdAsync(id, cancellationToken);
+        featureKey = await ResolveExternalFeatureKeyValueAsync(featureKey, cancellationToken);
+
         if (featureKey != null && _cacheService != null)
             await _cacheService.SetAsync(cacheKey, featureKey, DefaultCacheExpiration, cancellationToken);
 
@@ -338,7 +344,10 @@ public class FeatureFlagProvider : IFeatureFlagProvider
                 return cached;
         }
 
-        var featureKeys = await _featureKeyRepository.GetBySectionIdAsync(sectionId, cancellationToken);
+        var featureKeys = (await _featureKeyRepository.GetBySectionIdAsync(sectionId, cancellationToken)).ToList();
+        for (var index = 0; index < featureKeys.Count; index++)
+            featureKeys[index] = await ResolveExternalFeatureKeyValueAsync(featureKeys[index], cancellationToken);
+
         if (_cacheService != null)
             await _cacheService.SetAsync(cacheKey, featureKeys, DefaultCacheExpiration, cancellationToken);
 
@@ -347,7 +356,8 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
     public async Task<FeatureKeyDto> UpsertFeatureKeyAsync(FeatureKeyDto featureKey, CancellationToken cancellationToken = default)
     {
-        _validatorFactory?.Validate(featureKey.Type, featureKey.Value, featureKey.ValidationRegex);
+        if (featureKey.ExternalConfig == null || featureKey.Value != null)
+            _validatorFactory?.Validate(featureKey.Type, featureKey.Value, featureKey.ValidationRegex);
 
         FeatureKeyDto result;
         if (featureKey.Id == Guid.Empty)
@@ -373,7 +383,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
             await _cacheService.RemoveAsync(GetFeatureKeysBySectionCacheKey(result.SectionId), cancellationToken);
         }
 
-        return result;
+        return await ResolveExternalFeatureKeyValueAsync(result, cancellationToken);
     }
 
     public async Task DeleteFeatureKeyAsync(Guid id, CancellationToken cancellationToken = default)
@@ -390,4 +400,34 @@ public class FeatureFlagProvider : IFeatureFlagProvider
             await _cacheService.RemoveAsync(GetFeatureKeysBySectionCacheKey(featureKey.SectionId), cancellationToken);
         }
     }
+
+    private async Task<FeatureKeyDto?> ResolveExternalFeatureKeyValueAsync(FeatureKeyDto? featureKey, CancellationToken cancellationToken)
+    {
+        if (featureKey == null || featureKey.ExternalConfig == null || _externalSourceService == null)
+            return featureKey;
+
+        try
+        {
+            var fetchedValue = await _externalSourceService.FetchExternalValueAsync(featureKey.ExternalConfig, featureKey.Type, cancellationToken);
+            if (fetchedValue != null)
+            {
+                try
+                {
+                    _validatorFactory?.Validate(featureKey.Type, fetchedValue, featureKey.ValidationRegex);
+                    featureKey.Value = fetchedValue;
+                }
+                catch
+                {
+                    // keep fallback value if external response is invalid
+                }
+            }
+        }
+        catch
+        {
+            // fallback to stored value if the external source fails
+        }
+
+        return featureKey;
+    }
 }
+

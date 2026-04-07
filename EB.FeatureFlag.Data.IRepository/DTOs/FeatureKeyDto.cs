@@ -12,4 +12,5 @@ public class FeatureKeyDto
     public FeatureKeyType Type { get; set; }
     public object? Value { get; set; }
     public string? ValidationRegex { get; set; }
+    public ExternalSourceConfigDto? ExternalConfig { get; set; }
 }

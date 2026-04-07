@@ -1,3 +1,4 @@
+using EB.FeatureFlag.Data.IRepository.DTOs;
 using EB.FeatureFlag.Data.IRepository.Types;
 
 namespace EB.FeatureFlag.Aspire.ApiService.Models;
@@ -8,7 +9,8 @@ public record CreateFeatureKeyRequest(
     object? Value,
     string? Description = null,
     List<string>? Tags = null,
-    string? ValidationRegex = null);
+    string? ValidationRegex = null,
+    ExternalSourceConfigDto? ExternalConfig = null);
 
 public record UpdateFeatureKeyRequest(
     string Name,
@@ -16,4 +18,5 @@ public record UpdateFeatureKeyRequest(
     object? Value,
     string? Description = null,
     List<string>? Tags = null,
-    string? ValidationRegex = null);
+    string? ValidationRegex = null,
+    ExternalSourceConfigDto? ExternalConfig = null);

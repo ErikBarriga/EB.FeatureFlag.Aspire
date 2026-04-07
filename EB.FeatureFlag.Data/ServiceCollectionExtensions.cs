@@ -2,9 +2,11 @@ using EB.FeatureFlag.Data.Cache.InMemory;
 using EB.FeatureFlag.Data.Cache.Redis;
 using EB.FeatureFlag.Data.ICache;
 using EB.FeatureFlag.Data.IProvider;
+using EB.FeatureFlag.Data.IProvider.ExternalSource;
 using EB.FeatureFlag.Data.IProvider.Validation;
 using EB.FeatureFlag.Data.IRepository.Interfaces;
 using EB.FeatureFlag.Data.Provider;
+using EB.FeatureFlag.Data.Provider.ExternalSource;
 using EB.FeatureFlag.Data.Provider.Validators;
 using EB.FeatureFlag.Data.Repository.CosmosDb.Context;
 using EB.FeatureFlag.Data.Repository.CosmosDb.Repositories;
@@ -126,6 +128,9 @@ public static class ServiceCollectionExtensions
 
     private static IServiceCollection AddFeatureFlagProvider(this IServiceCollection services)
     {
+        services.AddHttpClient();
+        services.AddScoped<IExternalSourceService, ExternalSourceService>();
+
         services.AddScoped<IFeatureFlagProvider>(sp =>
         {
             var productRepo = sp.GetRequiredService<IProductRepository>();
@@ -134,9 +139,10 @@ public static class ServiceCollectionExtensions
             var featureKeyRepo = sp.GetRequiredService<IFeatureKeyRepository>();
             var cacheService = sp.GetService<ICacheService>();
             var validatorFactory = sp.GetService<IFeatureKeyValueValidatorFactory>();
+            var externalSourceService = sp.GetService<IExternalSourceService>();
 
             return new FeatureFlagProvider(
-                productRepo, environmentRepo, sectionRepo, featureKeyRepo, cacheService, validatorFactory);
+                productRepo, environmentRepo, sectionRepo, featureKeyRepo, cacheService, validatorFactory, externalSourceService);
         });
 
         return services;

@@ -36,7 +36,8 @@ public static class FeatureKeyEndpoints
                 Tags = request.Tags,
                 Type = request.Type,
                 Value = request.Value,
-                ValidationRegex = request.ValidationRegex
+                ValidationRegex = request.ValidationRegex,
+                ExternalConfig = request.ExternalConfig
             };
 
             try
@@ -67,6 +68,7 @@ public static class FeatureKeyEndpoints
             existing.Type = request.Type;
             existing.Value = request.Value;
             existing.ValidationRegex = request.ValidationRegex;
+            existing.ExternalConfig = request.ExternalConfig;
 
             try
             {

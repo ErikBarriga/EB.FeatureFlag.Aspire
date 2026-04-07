@@ -48,6 +48,7 @@ public class FeatureKeyRepository : IFeatureKeyRepository
         entity.Type = featureKey.Type;
         entity.Value = featureKey.Value;
         entity.ValidationRegex = featureKey.ValidationRegex;
+        entity.ExternalConfig = featureKey.ExternalConfig;
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 

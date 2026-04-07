@@ -10,6 +10,7 @@
     <ProjectReference Include="..\EB.FeatureFlag.Data.ICache\EB.FeatureFlag.Data.ICache.csproj" />
     <ProjectReference Include="..\EB.FeatureFlag.Data.IProvider\EB.FeatureFlag.Data.IProvider.csproj" />
     <ProjectReference Include="..\EB.FeatureFlag.Data.IRepository\EB.FeatureFlag.Data.IRepository.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
   </ItemGroup>
 
 </Project>
