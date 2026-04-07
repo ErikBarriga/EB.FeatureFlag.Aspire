@@ -19,6 +19,7 @@
     <ProjectReference Include="..\EB.FeatureFlag.Data.IRepository\EB.FeatureFlag.Data.IRepository.csproj" />
     <ProjectReference Include="..\EB.FeatureFlag.Data.Provider\EB.FeatureFlag.Data.Provider.csproj" />
     <ProjectReference Include="..\EB.FeatureFlag.Data.Repository.CosmosDb\EB.FeatureFlag.Data.Repository.CosmosDb.csproj" />
+    <ProjectReference Include="..\EB.FeatureFlag.Data.Repository.SQLite\EB.FeatureFlag.Data.Repository.SQLite.csproj" />
   </ItemGroup>
 
 </Project>

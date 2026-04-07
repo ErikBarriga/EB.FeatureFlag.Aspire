@@ -1,5 +1,6 @@
 using EB.FeatureFlag.Aspire.ApiService.Endpoints;
 using EB.FeatureFlag.Data;
+using EB.FeatureFlag.Data.Repository.SQLite.Context;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,15 @@ builder.Services.AddFeatureFlagData(options =>
 });
 
 var app = builder.Build();
+
+// Apply SQLite migrations if using SQLite
+var repoType = app.Configuration["FeatureFlag_RepositoryType"] ?? "Cosmos";
+if (Enum.Parse<FeatureFlagRepositoryType>(repoType, ignoreCase: true) == FeatureFlagRepositoryType.SQLite)
+{
+    using var scope = app.Services.CreateScope();
+    var dbContext = scope.ServiceProvider.GetRequiredService<FeatureFlagSqliteDbContext>();
+    dbContext.Database.EnsureCreated();
+}
 
 // Configure the HTTP request pipeline.
 app.UseExceptionHandler();

@@ -2,8 +2,9 @@ namespace EB.FeatureFlag.Data;
 
 public enum FeatureFlagRepositoryType
 {
-    Cosmos = 0
-    // MsSql = 1,
-    // MySql = 2,
-    // Mongo = 3
+    Cosmos = 0,
+    SQLite = 1
+    // MsSql = 2,
+    // MySql = 3,
+    // Mongo = 4
 }

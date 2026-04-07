@@ -10,6 +10,8 @@ using EB.FeatureFlag.Data.Provider.ExternalSource;
 using EB.FeatureFlag.Data.Provider.Validators;
 using EB.FeatureFlag.Data.Repository.CosmosDb.Context;
 using EB.FeatureFlag.Data.Repository.CosmosDb.Repositories;
+using EB.FeatureFlag.Data.Repository.SQLite.Context;
+using EB.FeatureFlag.Data.Repository.SQLite.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -75,10 +77,21 @@ public static class ServiceCollectionExtensions
                         options.RepositoryConnectionString,
                         databaseName: "FeatureFlagDb"));
 
-                services.AddScoped<IProductRepository, ProductRepository>();
-                services.AddScoped<IEnvironmentRepository, EnvironmentRepository>();
-                services.AddScoped<ISectionRepository, SectionRepository>();
-                services.AddScoped<IFeatureKeyRepository, FeatureKeyRepository>();
+                services.AddScoped<IProductRepository, Repository.CosmosDb.Repositories.ProductRepository>();
+                services.AddScoped<IEnvironmentRepository, Repository.CosmosDb.Repositories.EnvironmentRepository>();
+                services.AddScoped<ISectionRepository, Repository.CosmosDb.Repositories.SectionRepository>();
+                services.AddScoped<IFeatureKeyRepository, Repository.CosmosDb.Repositories.FeatureKeyRepository>();
+                break;
+
+            case FeatureFlagRepositoryType.SQLite:
+                services.AddDbContext<FeatureFlagSqliteDbContext>(dbOptions =>
+                    dbOptions.UseSqlite(
+                        options.RepositoryConnectionString ?? "Data Source=featureflag.db"));
+
+                services.AddScoped<IProductRepository, Repository.SQLite.Repositories.ProductRepository>();
+                services.AddScoped<IEnvironmentRepository, Repository.SQLite.Repositories.EnvironmentRepository>();
+                services.AddScoped<ISectionRepository, Repository.SQLite.Repositories.SectionRepository>();
+                services.AddScoped<IFeatureKeyRepository, Repository.SQLite.Repositories.FeatureKeyRepository>();
                 break;
 
             default:
