@@ -54,4 +54,11 @@ public class ProductRepository : IProductRepository
         _dbContext.Products.Remove(entity);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<ProductDto?> GetByAccessKeyAsync(string accessKey, CancellationToken cancellationToken = default)
+    {
+        var entity = await _dbContext.Products
+            .FirstOrDefaultAsync(p => p.PrimaryAccessKey == accessKey || p.SecondaryAccessKey == accessKey, cancellationToken);
+        return entity?.ToDto();
+    }
 }

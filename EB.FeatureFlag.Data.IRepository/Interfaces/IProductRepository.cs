@@ -9,4 +9,5 @@ public interface IProductRepository
     Task<ProductDto> AddAsync(ProductDto product, CancellationToken cancellationToken = default);
     Task UpdateAsync(ProductDto product, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<ProductDto?> GetByAccessKeyAsync(string accessKey, CancellationToken cancellationToken = default);
 }

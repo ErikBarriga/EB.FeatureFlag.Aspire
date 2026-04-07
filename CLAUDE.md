@@ -23,24 +23,22 @@ Multitenant feature flag system:
 - `FeatureFlag_CacheConnectionString`
 
 ## Status
-- Phases 1-4 completed: models, repos, cache, provider, key rotation, validators, regex
-- Pending: external sources, public API/SDK, Blazor management UI, tests
+- Phases 1-6 completed: models, repos, cache, provider, key rotation, validators, regex, external sources, public SDK API
+- Pending: Blazor management UI, tests
 
 ## Main Endpoints
-- `GET/POST/PUT/DELETE /api/products`
-- `POST /api/products/{id}/rotate-keys`
-- `GET/POST/PUT/DELETE /api/products/{productId}/environments`
-- `POST /api/environments/{id}/rotate-keys`
+- `GET/POST/PUT/DELETE /api/products`, `POST /api/products/{id}/rotate-keys`
+- `GET/POST/PUT/DELETE /api/products/{productId}/environments`, `POST /api/environments/{id}/rotate-keys`
 - `GET/POST/PUT/DELETE /api/environments/{environmentId}/sections`
-- `GET/POST/PUT/DELETE /api/sections/{id}`
-- `GET/POST/PUT/DELETE /api/sections/{sectionId}/feature-keys`
-- `GET/PUT/DELETE /api/feature-keys/{id}`
+- `GET/POST/PUT/DELETE /api/sections/{sectionId}/feature-keys`, `GET/PUT/DELETE /api/feature-keys/{id}`
+
+## SDK Endpoint (Phase 6)
+- `GET /api/sdk/feature-flags` — Headers: `X-Product-Key`, `X-Environment-Key`
+- Validates access keys (primary or secondary), returns all sections + keys with resolved external values
+- Response cached 5 min via `FeatureFlag:Sdk:{productId}:{environmentId}`
 
 ## FeatureKey Validation
-- `IFeatureKeyValueValidator` per type
-- `Validate(object? value, string? validationRegex = null)`
-- `LargeString` and `StringCollection` use `ValidationRegex`
-- `FeatureKeyDto/Entity` stores `ValidationRegex`
+- `IFeatureKeyValueValidator` per type, `LargeString`/`StringCollection` use `ValidationRegex`
 
 ## Build
 ```bash

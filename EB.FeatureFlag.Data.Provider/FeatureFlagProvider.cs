@@ -401,6 +401,56 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         }
     }
 
+    // --- SDK / Public API ---
+    private static string GetSdkCacheKey(Guid productId, Guid environmentId) => $"FeatureFlag:Sdk:{productId}:{environmentId}";
+    private static readonly TimeSpan SdkCacheExpiration = TimeSpan.FromMinutes(5);
+
+    public async Task<(ProductDto Product, EnvironmentDto Environment, IEnumerable<SdkSectionFlagsDto> Sections)?> GetFeatureFlagsByAccessKeysAsync(
+        string productKey, string environmentKey, CancellationToken cancellationToken = default)
+    {
+        var product = await _productRepository.GetByAccessKeyAsync(productKey, cancellationToken);
+        if (product == null)
+            return null;
+
+        var environment = await _environmentRepository.GetByAccessKeyAsync(environmentKey, product.Id, cancellationToken);
+        if (environment == null)
+            return null;
+
+        // Try cache first
+        var cacheKey = GetSdkCacheKey(product.Id, environment.Id);
+        if (_cacheService != null)
+        {
+            var cached = await _cacheService.GetAsync<List<SdkSectionFlagsDto>>(cacheKey, cancellationToken);
+            if (cached != null)
+                return (product, environment, cached);
+        }
+
+        // Build response: all sections with their feature keys
+        var sections = await _sectionRepository.GetByEnvironmentIdAsync(environment.Id, cancellationToken);
+        var result = new List<SdkSectionFlagsDto>();
+
+        foreach (var section in sections)
+        {
+            var featureKeys = (await _featureKeyRepository.GetBySectionIdAsync(section.Id, cancellationToken)).ToList();
+
+            // Resolve external values
+            for (var i = 0; i < featureKeys.Count; i++)
+                featureKeys[i] = await ResolveExternalFeatureKeyValueAsync(featureKeys[i], cancellationToken) ?? featureKeys[i];
+
+            result.Add(new SdkSectionFlagsDto
+            {
+                SectionName = section.Name,
+                FeatureKeys = featureKeys
+            });
+        }
+
+        // Cache the resolved result
+        if (_cacheService != null)
+            await _cacheService.SetAsync(cacheKey, result, SdkCacheExpiration, cancellationToken);
+
+        return (product, environment, result);
+    }
+
     private async Task<FeatureKeyDto?> ResolveExternalFeatureKeyValueAsync(FeatureKeyDto? featureKey, CancellationToken cancellationToken)
     {
         if (featureKey == null || featureKey.ExternalConfig == null || _externalSourceService == null)

@@ -37,4 +37,8 @@ public interface IFeatureFlagProvider
     Task<IEnumerable<FeatureKeyDto>> GetFeatureKeysBySectionIdAsync(Guid sectionId, CancellationToken cancellationToken = default);
     Task<FeatureKeyDto> UpsertFeatureKeyAsync(FeatureKeyDto featureKey, CancellationToken cancellationToken = default);
     Task DeleteFeatureKeyAsync(Guid id, CancellationToken cancellationToken = default);
+
+    // SDK / Public API
+    Task<(ProductDto Product, EnvironmentDto Environment, IEnumerable<SdkSectionFlagsDto> Sections)?> GetFeatureFlagsByAccessKeysAsync(
+        string productKey, string environmentKey, CancellationToken cancellationToken = default);
 }

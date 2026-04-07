@@ -57,4 +57,12 @@ public class EnvironmentRepository : IEnvironmentRepository
         _dbContext.Environments.Remove(entity);
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public async Task<EnvironmentDto?> GetByAccessKeyAsync(string accessKey, Guid productId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _dbContext.Environments
+            .Where(e => e.ProductId == productId)
+            .FirstOrDefaultAsync(e => e.PrimaryAccessKey == accessKey || e.SecondaryAccessKey == accessKey, cancellationToken);
+        return entity?.ToDto();
+    }
 }

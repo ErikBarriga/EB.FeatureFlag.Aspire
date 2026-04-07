@@ -39,6 +39,7 @@ app.MapProductEndpoints();
 app.MapEnvironmentEndpoints();
 app.MapSectionEndpoints();
 app.MapFeatureKeyEndpoints();
+app.MapSdkEndpoints();
 
 app.MapDefaultEndpoints();
 
