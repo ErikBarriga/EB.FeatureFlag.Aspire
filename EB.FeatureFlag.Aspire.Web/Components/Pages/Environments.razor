@@ -1,14 +1,17 @@
 @page "/products/{ProductId:guid}/environments"
+@page "/environments"
 @rendermode InteractiveServer
 @inject FeatureFlagApiClient Api
-@inject NavigationManager Nav
 
 <PageTitle>Environments</PageTitle>
 
 <nav aria-label="breadcrumb">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="/products">Products</a></li>
-        <li class="breadcrumb-item active">@(_productName ?? "...")</li>
+        @if (_productName is not null)
+        {
+            <li class="breadcrumb-item active">@_productName - Environments</li>
+        }
     </ol>
 </nav>
 
@@ -22,45 +25,65 @@
     </div>
 }
 
-<div class="mb-3">
-    <button class="btn btn-primary" @onclick="ShowCreate">+ New Environment</button>
-</div>
-
-@if (_environments is null)
+@if (ProductId == Guid.Empty)
 {
-    <p><em>Loading...</em></p>
-}
-else if (_environments.Count == 0)
-{
-    <p>No environments found.</p>
-}
-else
-{
-    <table class="table table-striped table-hover">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th>Tags</th>
-                <th style="width:300px">Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var e in _environments)
+    <div class="mb-3">
+        <label class="form-label"><strong>Select a Product</strong></label>
+        <select class="form-select" style="max-width:400px" @onchange="OnProductSelected">
+            <option value="">-- Choose a product --</option>
+            @if (_products is not null)
             {
-                <tr>
-                    <td>@e.Name</td>
-                    <td>@e.Description</td>
-                    <td>@(e.Tags is not null ? string.Join(", ", e.Tags) : "")</td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEdit(e)">Edit</button>
-                        <button class="btn btn-sm btn-outline-warning" @onclick="() => RotateKeys(e.Id)">Rotate Keys</button>
-                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(e.Id)">Delete</button>
-                    </td>
-                </tr>
+                @foreach (var p in _products)
+                {
+                    <option value="@p.Id">@p.Name</option>
+                }
             }
-        </tbody>
-    </table>
+        </select>
+    </div>
+}
+
+@if (_selectedProductId != Guid.Empty)
+{
+    <div class="mb-3">
+        <button class="btn btn-primary" @onclick="ShowCreate">+ New Environment</button>
+    </div>
+
+    @if (_environments is null)
+    {
+        <p><em>Loading...</em></p>
+    }
+    else if (_environments.Count == 0)
+    {
+        <p>No environments found.</p>
+    }
+    else
+    {
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Tags</th>
+                    <th style="width:300px">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var e in _environments)
+                {
+                    <tr>
+                        <td>@e.Name</td>
+                        <td>@e.Description</td>
+                        <td>@(e.Tags is not null ? string.Join(", ", e.Tags) : "")</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEdit(e)">Edit</button>
+                            <button class="btn btn-sm btn-outline-warning" @onclick="() => RotateKeys(e.Id)">Rotate Keys</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(e.Id)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
 }
 
 @if (_showKeys is not null)
@@ -118,6 +141,8 @@ else
 @code {
     [Parameter] public Guid ProductId { get; set; }
 
+    private Guid _selectedProductId;
+    private List<ProductModel>? _products;
     private List<EnvironmentModel>? _environments;
     private string? _productName;
     private string? _error;
@@ -132,14 +157,41 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var product = await Api.GetProductAsync(ProductId);
-        _productName = product?.Name;
-        await LoadData();
+        if (ProductId != Guid.Empty)
+        {
+            _selectedProductId = ProductId;
+            var product = await Api.GetProductAsync(ProductId);
+            _productName = product?.Name;
+            await LoadData();
+        }
+        else
+        {
+            try { _products = await Api.GetProductsAsync(); }
+            catch (Exception ex) { _error = ex.Message; }
+        }
+    }
+
+    private async Task OnProductSelected(ChangeEventArgs e)
+    {
+        _environments = null;
+        _productName = null;
+
+        if (Guid.TryParse(e.Value?.ToString(), out var productId) && productId != Guid.Empty)
+        {
+            _selectedProductId = productId;
+            var product = _products?.FirstOrDefault(p => p.Id == productId);
+            _productName = product?.Name;
+            await LoadData();
+        }
+        else
+        {
+            _selectedProductId = Guid.Empty;
+        }
     }
 
     private async Task LoadData()
     {
-        try { _environments = await Api.GetEnvironmentsAsync(ProductId); }
+        try { _environments = await Api.GetEnvironmentsAsync(_selectedProductId); }
         catch (Exception ex) { _error = ex.Message; }
     }
 
@@ -178,7 +230,7 @@ else
             if (_editId.HasValue)
                 await Api.UpdateEnvironmentAsync(_editId.Value, request);
             else
-                await Api.CreateEnvironmentAsync(ProductId, request);
+                await Api.CreateEnvironmentAsync(_selectedProductId, request);
 
             _showForm = false;
             await LoadData();

@@ -11,9 +11,7 @@ public static class EntityDtoMapper
         Id = entity.Id,
         Name = entity.Name,
         Description = entity.Description,
-        Tags = entity.Tags,
-        PrimaryAccessKey = entity.PrimaryAccessKey,
-        SecondaryAccessKey = entity.SecondaryAccessKey
+        Tags = entity.Tags
     };
 
     public static ProductEntity ToEntity(this ProductDto dto) => new()
@@ -21,9 +19,7 @@ public static class EntityDtoMapper
         Id = dto.Id,
         Name = dto.Name,
         Description = dto.Description,
-        Tags = dto.Tags,
-        PrimaryAccessKey = dto.PrimaryAccessKey,
-        SecondaryAccessKey = dto.SecondaryAccessKey
+        Tags = dto.Tags
     };
 
     // Environment
@@ -80,10 +76,10 @@ public static class EntityDtoMapper
         ContentType = null
     };
 
-    public static ExternalSourceConfigEntity ToEntity(this ExternalSourceConfigDto dto, Guid featureKeyId) => new()
+    public static ExternalSourceConfigEntity ToEntity(this ExternalSourceConfigDto dto, Guid detailId) => new()
     {
         Id = Guid.NewGuid(),
-        FeatureKeyId = featureKeyId,
+        FeatureFlagDetailId = detailId,
         Source = "External",
         Endpoint = dto.Url,
         AuthToken = null,
@@ -95,32 +91,49 @@ public static class EntityDtoMapper
         }).ToList() ?? []
     };
 
-    // FeatureKey
-    public static FeatureKeyDto ToDto(this FeatureKeyEntity entity) => new()
+    // FeatureFlag
+    public static FeatureFlagDto ToDto(this FeatureFlagEntity entity) => new()
     {
         Id = entity.Id,
+        ProductId = entity.ProductId,
         SectionId = entity.SectionId,
         Name = entity.Name,
         Description = entity.Description,
         Tags = entity.Tags,
         Type = entity.Type,
-        Value = entity.Value,
-        ValidationRegex = entity.ValidationRegex,
-        ExternalConfig = entity.ExternalConfig?.ToDto()
+        ValidationRegex = entity.ValidationRegex
     };
 
-    public static FeatureKeyEntity ToEntity(this FeatureKeyDto dto, Guid environmentId, Guid productId) => new()
+    public static FeatureFlagEntity ToEntity(this FeatureFlagDto dto) => new()
     {
         Id = dto.Id,
+        ProductId = dto.ProductId,
         SectionId = dto.SectionId,
-        EnvironmentId = environmentId,
-        ProductId = productId,
         Name = dto.Name,
         Description = dto.Description,
         Tags = dto.Tags,
         Type = dto.Type,
+        ValidationRegex = dto.ValidationRegex
+    };
+
+    // FeatureFlagDetail
+    public static FeatureFlagDetailDto ToDto(this FeatureFlagDetailEntity entity) => new()
+    {
+        Id = entity.Id,
+        FeatureFlagId = entity.FeatureFlagId,
+        EnvironmentId = entity.EnvironmentId,
+        ProductId = entity.ProductId,
+        Value = entity.Value,
+        ExternalConfig = entity.ExternalConfig?.ToDto()
+    };
+
+    public static FeatureFlagDetailEntity ToEntity(this FeatureFlagDetailDto dto) => new()
+    {
+        Id = dto.Id,
+        FeatureFlagId = dto.FeatureFlagId,
+        EnvironmentId = dto.EnvironmentId,
+        ProductId = dto.ProductId,
         Value = dto.Value,
-        ValidationRegex = dto.ValidationRegex,
         ExternalConfig = dto.ExternalConfig != null ? dto.ExternalConfig.ToEntity(dto.Id) : null
     };
 }

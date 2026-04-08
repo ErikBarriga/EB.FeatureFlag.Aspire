@@ -11,28 +11,29 @@ public class FeatureFlagCosmosDbContext : DbContext
     public DbSet<ProductEntity> Products => Set<ProductEntity>();
     public DbSet<EnvironmentEntity> Environments => Set<EnvironmentEntity>();
     public DbSet<SectionEntity> Sections => Set<SectionEntity>();
-    public DbSet<FeatureKeyEntity> FeatureKeys => Set<FeatureKeyEntity>();
+    public DbSet<FeatureFlagEntity> FeatureFlags => Set<FeatureFlagEntity>();
+    public DbSet<FeatureFlagDetailEntity> FeatureFlagDetails => Set<FeatureFlagDetailEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        // Product
         modelBuilder.Entity<ProductEntity>()
             .ToContainer("Products")
             .HasPartitionKey(p => p.Id);
 
-        // Environment
         modelBuilder.Entity<EnvironmentEntity>()
             .ToContainer("Environments")
             .HasPartitionKey(e => e.ProductId);
 
-        // Section
         modelBuilder.Entity<SectionEntity>()
             .ToContainer("Sections")
             .HasPartitionKey(s => s.ProductId);
 
-        // FeatureKey
-        modelBuilder.Entity<FeatureKeyEntity>()
-            .ToContainer("FeatureKeys")
-            .HasPartitionKey(fk => fk.ProductId);
+        modelBuilder.Entity<FeatureFlagEntity>()
+            .ToContainer("FeatureFlags")
+            .HasPartitionKey(ff => ff.ProductId);
+
+        modelBuilder.Entity<FeatureFlagDetailEntity>()
+            .ToContainer("FeatureFlagDetails")
+            .HasPartitionKey(d => d.ProductId);
     }
 }

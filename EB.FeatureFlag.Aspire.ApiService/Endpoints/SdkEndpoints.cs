@@ -15,15 +15,14 @@ public static class SdkEndpoints
             IFeatureFlagProvider provider,
             CancellationToken ct) =>
         {
-            var productKey = httpContext.Request.Headers["X-Product-Key"].FirstOrDefault();
             var envKey = httpContext.Request.Headers["X-Environment-Key"].FirstOrDefault();
 
-            if (string.IsNullOrWhiteSpace(productKey) || string.IsNullOrWhiteSpace(envKey))
-                return Results.Problem("Headers 'X-Product-Key' and 'X-Environment-Key' are required.", statusCode: 400);
+            if (string.IsNullOrWhiteSpace(envKey))
+                return Results.Problem("Header 'X-Environment-Key' is required.", statusCode: 400);
 
-            var result = await provider.GetFeatureFlagsByAccessKeysAsync(productKey, envKey, ct);
+            var result = await provider.GetFeatureFlagsByAccessKeyAsync(envKey, ct);
             if (result == null)
-                return Results.Problem("Invalid access keys.", statusCode: 401);
+                return Results.Problem("Invalid access key.", statusCode: 401);
 
             var (product, environment, sections) = result.Value;
 
@@ -32,10 +31,10 @@ public static class SdkEndpoints
                 Environment: environment.Name,
                 Sections: sections.Select(s => new SdkSectionResponse(
                     Name: s.SectionName,
-                    Keys: s.FeatureKeys.Select(fk => new SdkFeatureKeyResponse(
-                        Name: fk.Name,
-                        Type: fk.Type,
-                        Value: fk.Value
+                    Flags: s.FeatureFlags.Select(ff => new SdkFeatureFlagResponse(
+                        Name: ff.Name,
+                        Type: ff.Type,
+                        Value: ff.Value
                     )).ToList()
                 )).ToList()
             );

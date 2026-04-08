@@ -48,7 +48,7 @@ if (app.Environment.IsDevelopment())
 app.MapProductEndpoints();
 app.MapEnvironmentEndpoints();
 app.MapSectionEndpoints();
-app.MapFeatureKeyEndpoints();
+app.MapFeatureFlagEndpoints();
 app.MapSdkEndpoints();
 
 app.MapDefaultEndpoints();

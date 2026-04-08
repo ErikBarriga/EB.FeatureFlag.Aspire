@@ -80,7 +80,8 @@ public static class ServiceCollectionExtensions
                 services.AddScoped<IProductRepository, Repository.CosmosDb.Repositories.ProductRepository>();
                 services.AddScoped<IEnvironmentRepository, Repository.CosmosDb.Repositories.EnvironmentRepository>();
                 services.AddScoped<ISectionRepository, Repository.CosmosDb.Repositories.SectionRepository>();
-                services.AddScoped<IFeatureKeyRepository, Repository.CosmosDb.Repositories.FeatureKeyRepository>();
+                services.AddScoped<IFeatureFlagRepository, Repository.CosmosDb.Repositories.FeatureFlagRepository>();
+                services.AddScoped<IFeatureFlagDetailRepository, Repository.CosmosDb.Repositories.FeatureFlagDetailRepository>();
                 break;
 
             case FeatureFlagRepositoryType.SQLite:
@@ -91,7 +92,8 @@ public static class ServiceCollectionExtensions
                 services.AddScoped<IProductRepository, Repository.SQLite.Repositories.ProductRepository>();
                 services.AddScoped<IEnvironmentRepository, Repository.SQLite.Repositories.EnvironmentRepository>();
                 services.AddScoped<ISectionRepository, Repository.SQLite.Repositories.SectionRepository>();
-                services.AddScoped<IFeatureKeyRepository, Repository.SQLite.Repositories.FeatureKeyRepository>();
+                services.AddScoped<IFeatureFlagRepository, Repository.SQLite.Repositories.FeatureFlagRepository>();
+                services.AddScoped<IFeatureFlagDetailRepository, Repository.SQLite.Repositories.FeatureFlagDetailRepository>();
                 break;
 
             default:
@@ -149,13 +151,14 @@ public static class ServiceCollectionExtensions
             var productRepo = sp.GetRequiredService<IProductRepository>();
             var environmentRepo = sp.GetRequiredService<IEnvironmentRepository>();
             var sectionRepo = sp.GetRequiredService<ISectionRepository>();
-            var featureKeyRepo = sp.GetRequiredService<IFeatureKeyRepository>();
+            var featureFlagRepo = sp.GetRequiredService<IFeatureFlagRepository>();
+            var featureFlagDetailRepo = sp.GetRequiredService<IFeatureFlagDetailRepository>();
             var cacheService = sp.GetService<ICacheService>();
             var validatorFactory = sp.GetService<IFeatureKeyValueValidatorFactory>();
             var externalSourceService = sp.GetService<IExternalSourceService>();
 
             return new FeatureFlagProvider(
-                productRepo, environmentRepo, sectionRepo, featureKeyRepo, cacheService, validatorFactory, externalSourceService);
+                productRepo, environmentRepo, sectionRepo, featureFlagRepo, featureFlagDetailRepo, cacheService, validatorFactory, externalSourceService);
         });
 
         return services;

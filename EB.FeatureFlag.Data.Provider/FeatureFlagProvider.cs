@@ -12,7 +12,8 @@ public class FeatureFlagProvider : IFeatureFlagProvider
     private readonly IProductRepository _productRepository;
     private readonly IEnvironmentRepository _environmentRepository;
     private readonly ISectionRepository _sectionRepository;
-    private readonly IFeatureKeyRepository _featureKeyRepository;
+    private readonly IFeatureFlagRepository _featureFlagRepository;
+    private readonly IFeatureFlagDetailRepository _featureFlagDetailRepository;
     private readonly ICacheService? _cacheService;
     private readonly IFeatureKeyValueValidatorFactory? _validatorFactory;
     private readonly IExternalSourceService? _externalSourceService;
@@ -22,7 +23,8 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         IProductRepository productRepository,
         IEnvironmentRepository environmentRepository,
         ISectionRepository sectionRepository,
-        IFeatureKeyRepository featureKeyRepository,
+        IFeatureFlagRepository featureFlagRepository,
+        IFeatureFlagDetailRepository featureFlagDetailRepository,
         ICacheService? cacheService = null,
         IFeatureKeyValueValidatorFactory? validatorFactory = null,
         IExternalSourceService? externalSourceService = null)
@@ -30,7 +32,8 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         _productRepository = productRepository;
         _environmentRepository = environmentRepository;
         _sectionRepository = sectionRepository;
-        _featureKeyRepository = featureKeyRepository;
+        _featureFlagRepository = featureFlagRepository;
+        _featureFlagDetailRepository = featureFlagDetailRepository;
         _cacheService = cacheService;
         _validatorFactory = validatorFactory;
         _externalSourceService = externalSourceService;
@@ -79,11 +82,6 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         ProductDto result;
         if (product.Id == Guid.Empty)
         {
-            if (string.IsNullOrEmpty(product.PrimaryAccessKey))
-                product.PrimaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
-            if (string.IsNullOrEmpty(product.SecondaryAccessKey))
-                product.SecondaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
-
             result = await _productRepository.AddAsync(product, cancellationToken);
         }
         else
@@ -100,25 +98,6 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         }
 
         return result;
-    }
-
-    public async Task<ProductDto> RotateProductKeysAsync(Guid productId, CancellationToken cancellationToken = default)
-    {
-        var product = await _productRepository.GetByIdAsync(productId, cancellationToken)
-            ?? throw new KeyNotFoundException($"Product '{productId}' not found.");
-
-        product.SecondaryAccessKey = product.PrimaryAccessKey;
-        product.PrimaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
-
-        await _productRepository.UpdateAsync(product, cancellationToken);
-
-        if (_cacheService != null)
-        {
-            await _cacheService.SetAsync(GetProductCacheKey(productId), product, DefaultCacheExpiration, cancellationToken);
-            await _cacheService.RemoveAsync(GetAllProductsCacheKey(), cancellationToken);
-        }
-
-        return product;
     }
 
     public async Task DeleteProductAsync(Guid id, CancellationToken cancellationToken = default)
@@ -311,109 +290,110 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         }
     }
 
-    // --- FeatureKey ---
-    private static string GetFeatureKeyCacheKey(Guid id) => $"FeatureFlag:FeatureKey:{id}";
-    private static string GetFeatureKeysBySectionCacheKey(Guid sectionId) => $"FeatureFlag:FeatureKey:BySection:{sectionId}";
+    // --- FeatureFlag (definition) ---
+    public async Task<FeatureFlagDto?> GetFeatureFlagByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        => await _featureFlagRepository.GetByIdAsync(id, cancellationToken);
 
-    public async Task<FeatureKeyDto?> GetFeatureKeyByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<IEnumerable<FeatureFlagDto>> GetFeatureFlagsBySectionIdAsync(Guid sectionId, CancellationToken cancellationToken = default)
+        => await _featureFlagRepository.GetBySectionIdAsync(sectionId, cancellationToken);
+
+    public async Task<IEnumerable<FeatureFlagDto>> GetFeatureFlagsByProductIdAsync(Guid productId, CancellationToken cancellationToken = default)
+        => await _featureFlagRepository.GetByProductIdAsync(productId, cancellationToken);
+
+    public async Task<FeatureFlagDto> UpsertFeatureFlagAsync(FeatureFlagDto featureFlag, CancellationToken cancellationToken = default)
     {
-        var cacheKey = GetFeatureKeyCacheKey(id);
-        if (_cacheService != null)
+        FeatureFlagDto result;
+        if (featureFlag.Id == Guid.Empty)
         {
-            var cached = await _cacheService.GetAsync<FeatureKeyDto>(cacheKey, cancellationToken);
-            if (cached != null)
-                return cached;
-        }
+            var section = await _sectionRepository.GetByIdAsync(featureFlag.SectionId, cancellationToken)
+                ?? throw new KeyNotFoundException($"Section '{featureFlag.SectionId}' not found.");
 
-        var featureKey = await _featureKeyRepository.GetByIdAsync(id, cancellationToken);
-        featureKey = await ResolveExternalFeatureKeyValueAsync(featureKey, cancellationToken);
+            featureFlag.ProductId = section.ProductId;
+            result = await _featureFlagRepository.AddAsync(featureFlag, cancellationToken);
 
-        if (featureKey != null && _cacheService != null)
-            await _cacheService.SetAsync(cacheKey, featureKey, DefaultCacheExpiration, cancellationToken);
-
-        return featureKey;
-    }
-
-    public async Task<IEnumerable<FeatureKeyDto>> GetFeatureKeysBySectionIdAsync(Guid sectionId, CancellationToken cancellationToken = default)
-    {
-        var cacheKey = GetFeatureKeysBySectionCacheKey(sectionId);
-        if (_cacheService != null)
-        {
-            var cached = await _cacheService.GetAsync<IEnumerable<FeatureKeyDto>>(cacheKey, cancellationToken);
-            if (cached != null)
-                return cached;
-        }
-
-        var featureKeys = (await _featureKeyRepository.GetBySectionIdAsync(sectionId, cancellationToken)).ToList();
-        for (var index = 0; index < featureKeys.Count; index++)
-            featureKeys[index] = await ResolveExternalFeatureKeyValueAsync(featureKeys[index], cancellationToken);
-
-        if (_cacheService != null)
-            await _cacheService.SetAsync(cacheKey, featureKeys, DefaultCacheExpiration, cancellationToken);
-
-        return featureKeys;
-    }
-
-    public async Task<FeatureKeyDto> UpsertFeatureKeyAsync(FeatureKeyDto featureKey, CancellationToken cancellationToken = default)
-    {
-        if (featureKey.ExternalConfig == null || featureKey.Value != null)
-            _validatorFactory?.Validate(featureKey.Type, featureKey.Value, featureKey.ValidationRegex);
-
-        FeatureKeyDto result;
-        if (featureKey.Id == Guid.Empty)
-        {
-            var section = await _sectionRepository.GetByIdAsync(featureKey.SectionId, cancellationToken)
-                ?? throw new KeyNotFoundException($"Section '{featureKey.SectionId}' not found.");
-
-            result = await _featureKeyRepository.AddAsync(featureKey, section.ProductId, section.ProductId, cancellationToken);
+            // Auto-create a FeatureFlagDetail for each environment in the product
+            var environments = await _environmentRepository.GetByProductIdAsync(result.ProductId, cancellationToken);
+            foreach (var env in environments)
+            {
+                var detail = new FeatureFlagDetailDto
+                {
+                    FeatureFlagId = result.Id,
+                    EnvironmentId = env.Id,
+                    ProductId = result.ProductId
+                };
+                await _featureFlagDetailRepository.AddAsync(detail, cancellationToken);
+            }
         }
         else
         {
-            await _featureKeyRepository.UpdateAsync(featureKey, cancellationToken);
-            result = featureKey;
+            await _featureFlagRepository.UpdateAsync(featureFlag, cancellationToken);
+            result = featureFlag;
         }
 
-        if (_cacheService != null)
-        {
-            var cacheKey = GetFeatureKeyCacheKey(result.Id);
-            await _cacheService.SetAsync(cacheKey, result, DefaultCacheExpiration, cancellationToken);
-            await _cacheService.RemoveAsync(GetFeatureKeysBySectionCacheKey(result.SectionId), cancellationToken);
-        }
-
-        return await ResolveExternalFeatureKeyValueAsync(result, cancellationToken);
+        return result;
     }
 
-    public async Task DeleteFeatureKeyAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteFeatureFlagAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var featureKey = await _featureKeyRepository.GetByIdAsync(id, cancellationToken);
-        if (featureKey == null)
-            return;
+        await _featureFlagDetailRepository.DeleteByFeatureFlagIdAsync(id, cancellationToken);
+        await _featureFlagRepository.DeleteAsync(id, cancellationToken);
+    }
 
-        await _featureKeyRepository.DeleteAsync(id, cancellationToken);
+    // --- FeatureFlagDetail (per-environment value) ---
+    public async Task<FeatureFlagDetailDto?> GetFeatureFlagDetailByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var detail = await _featureFlagDetailRepository.GetByIdAsync(id, cancellationToken);
+        if (detail == null) return null;
 
-        if (_cacheService != null)
+        var flag = await _featureFlagRepository.GetByIdAsync(detail.FeatureFlagId, cancellationToken);
+        if (flag != null)
+            detail = await ResolveExternalDetailValueAsync(detail, flag, cancellationToken);
+
+        return detail;
+    }
+
+    public async Task<IEnumerable<FeatureFlagDetailDto>> GetFeatureFlagDetailsByFlagIdAsync(Guid featureFlagId, CancellationToken cancellationToken = default)
+    {
+        var details = (await _featureFlagDetailRepository.GetByFeatureFlagIdAsync(featureFlagId, cancellationToken)).ToList();
+        var flag = await _featureFlagRepository.GetByIdAsync(featureFlagId, cancellationToken);
+
+        if (flag != null)
         {
-            await _cacheService.RemoveAsync(GetFeatureKeyCacheKey(id), cancellationToken);
-            await _cacheService.RemoveAsync(GetFeatureKeysBySectionCacheKey(featureKey.SectionId), cancellationToken);
+            for (var i = 0; i < details.Count; i++)
+                details[i] = await ResolveExternalDetailValueAsync(details[i], flag, cancellationToken) ?? details[i];
         }
+
+        return details;
+    }
+
+    public async Task<FeatureFlagDetailDto> UpsertFeatureFlagDetailAsync(FeatureFlagDetailDto detail, FeatureFlagDto featureFlag, CancellationToken cancellationToken = default)
+    {
+        if (detail.ExternalConfig == null || detail.Value != null)
+            _validatorFactory?.Validate(featureFlag.Type, detail.Value, featureFlag.ValidationRegex);
+
+        if (detail.Id == Guid.Empty)
+        {
+            detail.ProductId = featureFlag.ProductId;
+            return await _featureFlagDetailRepository.AddAsync(detail, cancellationToken);
+        }
+
+        await _featureFlagDetailRepository.UpdateAsync(detail, cancellationToken);
+        return detail;
     }
 
     // --- SDK / Public API ---
     private static string GetSdkCacheKey(Guid productId, Guid environmentId) => $"FeatureFlag:Sdk:{productId}:{environmentId}";
     private static readonly TimeSpan SdkCacheExpiration = TimeSpan.FromMinutes(5);
 
-    public async Task<(ProductDto Product, EnvironmentDto Environment, IEnumerable<SdkSectionFlagsDto> Sections)?> GetFeatureFlagsByAccessKeysAsync(
-        string productKey, string environmentKey, CancellationToken cancellationToken = default)
+    public async Task<(ProductDto Product, EnvironmentDto Environment, IEnumerable<SdkSectionFlagsDto> Sections)?> GetFeatureFlagsByAccessKeyAsync(
+        string environmentKey, CancellationToken cancellationToken = default)
     {
-        var product = await _productRepository.GetByAccessKeyAsync(productKey, cancellationToken);
-        if (product == null)
-            return null;
+        var environment = await _environmentRepository.GetByAccessKeyAsync(environmentKey, cancellationToken);
+        if (environment == null) return null;
 
-        var environment = await _environmentRepository.GetByAccessKeyAsync(environmentKey, product.Id, cancellationToken);
-        if (environment == null)
-            return null;
+        var product = await _productRepository.GetByIdAsync(environment.ProductId, cancellationToken);
+        if (product == null) return null;
 
-        // Try cache first
         var cacheKey = GetSdkCacheKey(product.Id, environment.Id);
         if (_cacheService != null)
         {
@@ -422,59 +402,64 @@ public class FeatureFlagProvider : IFeatureFlagProvider
                 return (product, environment, cached);
         }
 
-        // Build response: all sections with their feature keys
         var sections = await _sectionRepository.GetByProductIdAsync(product.Id, cancellationToken);
         var result = new List<SdkSectionFlagsDto>();
 
         foreach (var section in sections)
         {
-            var featureKeys = (await _featureKeyRepository.GetBySectionIdAsync(section.Id, cancellationToken)).ToList();
+            var flags = await _featureFlagRepository.GetBySectionIdAsync(section.Id, cancellationToken);
+            var sdkFlags = new List<SdkFeatureFlagItemDto>();
 
-            // Resolve external values
-            for (var i = 0; i < featureKeys.Count; i++)
-                featureKeys[i] = await ResolveExternalFeatureKeyValueAsync(featureKeys[i], cancellationToken) ?? featureKeys[i];
+            foreach (var flag in flags)
+            {
+                var details = await _featureFlagDetailRepository.GetByFeatureFlagIdAsync(flag.Id, cancellationToken);
+                var detail = details.FirstOrDefault(d => d.EnvironmentId == environment.Id);
+
+                if (detail != null)
+                    detail = await ResolveExternalDetailValueAsync(detail, flag, cancellationToken);
+
+                sdkFlags.Add(new SdkFeatureFlagItemDto
+                {
+                    Name = flag.Name,
+                    Type = flag.Type,
+                    Value = detail?.Value
+                });
+            }
 
             result.Add(new SdkSectionFlagsDto
             {
                 SectionName = section.Name,
-                FeatureKeys = featureKeys
+                FeatureFlags = sdkFlags
             });
         }
 
-        // Cache the resolved result
         if (_cacheService != null)
             await _cacheService.SetAsync(cacheKey, result, SdkCacheExpiration, cancellationToken);
 
         return (product, environment, result);
     }
 
-    private async Task<FeatureKeyDto?> ResolveExternalFeatureKeyValueAsync(FeatureKeyDto? featureKey, CancellationToken cancellationToken)
+    private async Task<FeatureFlagDetailDto?> ResolveExternalDetailValueAsync(FeatureFlagDetailDto? detail, FeatureFlagDto flag, CancellationToken cancellationToken)
     {
-        if (featureKey == null || featureKey.ExternalConfig == null || _externalSourceService == null)
-            return featureKey;
+        if (detail == null || detail.ExternalConfig == null || _externalSourceService == null)
+            return detail;
 
         try
         {
-            var fetchedValue = await _externalSourceService.FetchExternalValueAsync(featureKey.ExternalConfig, featureKey.Type, cancellationToken);
+            var fetchedValue = await _externalSourceService.FetchExternalValueAsync(detail.ExternalConfig, flag.Type, cancellationToken);
             if (fetchedValue != null)
             {
                 try
                 {
-                    _validatorFactory?.Validate(featureKey.Type, fetchedValue, featureKey.ValidationRegex);
-                    featureKey.Value = fetchedValue;
+                    _validatorFactory?.Validate(flag.Type, fetchedValue, flag.ValidationRegex);
+                    detail.Value = fetchedValue;
                 }
-                catch
-                {
-                    // keep fallback value if external response is invalid
-                }
+                catch { }
             }
         }
-        catch
-        {
-            // fallback to stored value if the external source fails
-        }
+        catch { }
 
-        return featureKey;
+        return detail;
     }
 }
 

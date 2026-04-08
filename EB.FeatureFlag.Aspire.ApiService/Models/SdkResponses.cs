@@ -9,9 +9,9 @@ public record SdkFeatureFlagsResponse(
 
 public record SdkSectionResponse(
     string Name,
-    List<SdkFeatureKeyResponse> Keys);
+    List<SdkFeatureFlagResponse> Flags);
 
-public record SdkFeatureKeyResponse(
+public record SdkFeatureFlagResponse(
     string Name,
     FeatureKeyType Type,
     object? Value);

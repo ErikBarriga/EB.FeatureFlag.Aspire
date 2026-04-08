@@ -42,8 +42,6 @@ public class ProductRepository : IProductRepository
         entity.Name = product.Name;
         entity.Description = product.Description;
         entity.Tags = product.Tags;
-        entity.PrimaryAccessKey = product.PrimaryAccessKey;
-        entity.SecondaryAccessKey = product.SecondaryAccessKey;
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -53,12 +51,5 @@ public class ProductRepository : IProductRepository
         if (entity == null) return;
         _dbContext.Products.Remove(entity);
         await _dbContext.SaveChangesAsync(cancellationToken);
-    }
-
-    public async Task<ProductDto?> GetByAccessKeyAsync(string accessKey, CancellationToken cancellationToken = default)
-    {
-        var entity = await _dbContext.Products
-            .FirstOrDefaultAsync(p => p.PrimaryAccessKey == accessKey || p.SecondaryAccessKey == accessKey, cancellationToken);
-        return entity?.ToDto();
     }
 }

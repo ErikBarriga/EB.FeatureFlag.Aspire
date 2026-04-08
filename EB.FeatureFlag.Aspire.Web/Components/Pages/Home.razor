@@ -10,31 +10,43 @@
 </div>
 
 <div class="row g-4 mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card h-100 border-primary">
             <div class="card-body text-center">
                 <h2 class="display-4 text-primary">@_productCount</h2>
                 <h5 class="card-title">Products</h5>
-                <p class="card-text text-muted">Registered products using the feature flag system</p>
-                <a href="/products" class="btn btn-outline-primary">Manage Products</a>
+                <p class="card-text text-muted">Registered products</p>
+                <a href="/products" class="btn btn-outline-primary">Manage</a>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
         <div class="card h-100 border-success">
             <div class="card-body text-center">
                 <h2 class="display-4 text-success">@_environmentCount</h2>
                 <h5 class="card-title">Environments</h5>
-                <p class="card-text text-muted">Active environments across all products</p>
+                <p class="card-text text-muted">Across all products</p>
+                <a href="/environments" class="btn btn-outline-warning">Manage</a>
             </div>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
+        <div class="card h-100 border-warning">
+            <div class="card-body text-center">
+                <h2 class="display-4 text-warning">@_sectionCount</h2>
+                <h5 class="card-title">Sections</h5>
+                <p class="card-text text-muted">Logical groupings</p>
+                <a href="/sections" class="btn btn-outline-warning">Manage</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
         <div class="card h-100 border-info">
             <div class="card-body text-center">
-                <h2 class="display-4 text-info">@_featureKeyCount</h2>
-                <h5 class="card-title">Feature Keys</h5>
-                <p class="card-text text-muted">Total feature flags configured</p>
+                <h2 class="display-4 text-info">@_featureFlagCount</h2>
+                <h5 class="card-title">Feature Flags</h5>
+                <p class="card-text text-muted">Total configured</p>
+                <a href="/feature-flags" class="btn btn-outline-info">Manage</a>
             </div>
         </div>
     </div>
@@ -80,9 +92,8 @@
                 <p>Consume feature flags from your applications via the SDK endpoint:</p>
                 <pre class="bg-light p-3 rounded"><code>GET /api/sdk/feature-flags
 Headers:
-  X-Product-Key: &lt;your-product-key&gt;
   X-Environment-Key: &lt;your-environment-key&gt;</code></pre>
-                <p class="text-muted mb-0">Access keys are generated when creating products and environments. Use <strong>Rotate Keys</strong> to regenerate them.</p>
+                <p class="text-muted mb-0">Access keys are generated when creating environments. Use <strong>Rotate Keys</strong> to regenerate them.</p>
             </div>
         </div>
     </div>
@@ -91,10 +102,10 @@ Headers:
             <div class="card-header"><h5 class="mb-0">Architecture</h5></div>
             <div class="card-body">
                 <ul class="list-unstyled mb-0">
-                    <li class="mb-2"><strong>Products</strong> — Top-level tenants with access keys</li>
+                    <li class="mb-2"><strong>Products</strong> — Top-level tenants</li>
                     <li class="mb-2"><strong>Environments</strong> — Dev, Staging, Production per product</li>
                     <li class="mb-2"><strong>Sections</strong> — Logical grouping of feature flags</li>
-                    <li class="mb-2"><strong>Feature Keys</strong> — Boolean, String, Collection, or JSON values</li>
+                    <li class="mb-2"><strong>Feature Flags</strong> — Boolean, String, Collection, or JSON values per environment</li>
                     <li class="text-muted">Supports external value sources, validation regex, and key rotation</li>
                 </ul>
             </div>
@@ -107,7 +118,8 @@ Headers:
     private Dictionary<Guid, int> _envCounts = new();
     private int _productCount;
     private int _environmentCount;
-    private int _featureKeyCount;
+    private int _sectionCount;
+    private int _featureFlagCount;
 
     protected override async Task OnInitializedAsync()
     {
@@ -124,11 +136,10 @@ Headers:
                 _environmentCount += envList.Count;
 
                 var sections = await Api.GetSectionsByProductAsync(p.Id);
-                foreach (var section in sections)
-                {
-                    var keys = await Api.GetFeatureKeysAsync(section.Id);
-                    _featureKeyCount += keys.Count;
-                }
+                _sectionCount += sections.Count;
+
+                var flags = await Api.GetFeatureFlagsByProductAsync(p.Id);
+                _featureFlagCount += flags.Count;
             }
         }
         catch

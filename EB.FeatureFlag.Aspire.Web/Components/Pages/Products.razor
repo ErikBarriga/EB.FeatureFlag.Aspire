@@ -47,32 +47,14 @@ else
                     <td>
                         <a href="/products/@p.Id/environments" class="btn btn-sm btn-outline-primary">Environments</a>
                         <a href="/products/@p.Id/sections" class="btn btn-sm btn-outline-primary">Sections</a>
+                        <a href="/products/@p.Id/feature-flags" class="btn btn-sm btn-outline-primary">Feature Flags</a>
                         <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEdit(p)">Edit</button>
-                        <button class="btn btn-sm btn-outline-warning" @onclick="() => RotateKeys(p.Id)">Rotate Keys</button>
                         <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(p.Id)">Delete</button>
                     </td>
                 </tr>
             }
         </tbody>
     </table>
-}
-
-@if (_showKeys is not null)
-{
-    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Access Keys - @_showKeys.Name</h5>
-                    <button type="button" class="btn-close" @onclick="() => _showKeys = null"></button>
-                </div>
-                <div class="modal-body">
-                    <p><strong>Primary:</strong> <code>@_showKeys.PrimaryAccessKey</code></p>
-                    <p><strong>Secondary:</strong> <code>@_showKeys.SecondaryAccessKey</code></p>
-                </div>
-            </div>
-        </div>
-    </div>
 }
 
 @if (_showForm)
@@ -112,7 +94,6 @@ else
 @code {
     private List<ProductModel>? _products;
     private string? _error;
-    private ProductModel? _showKeys;
 
     // Form state
     private bool _showForm;
@@ -188,16 +169,4 @@ else
         catch (Exception ex) { _error = ex.Message; }
     }
 
-    private async Task RotateKeys(Guid id)
-    {
-        _error = null;
-        try
-        {
-            var result = await Api.RotateProductKeysAsync(id);
-            if (result is not null)
-                _showKeys = result;
-            await LoadProducts();
-        }
-        catch (Exception ex) { _error = ex.Message; }
-    }
 }

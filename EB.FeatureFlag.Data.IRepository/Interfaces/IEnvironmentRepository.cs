@@ -9,5 +9,5 @@ public interface IEnvironmentRepository
     Task<EnvironmentDto> AddAsync(EnvironmentDto environment, CancellationToken cancellationToken = default);
     Task UpdateAsync(EnvironmentDto environment, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<EnvironmentDto?> GetByAccessKeyAsync(string accessKey, Guid productId, CancellationToken cancellationToken = default);
+    Task<EnvironmentDto?> GetByAccessKeyAsync(string accessKey, CancellationToken cancellationToken = default);
 }

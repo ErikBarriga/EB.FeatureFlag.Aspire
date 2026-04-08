@@ -9,6 +9,4 @@ public class ProductEntity
     public string Name { get; set; } = default!;
     public string? Description { get; set; }
     public List<string>? Tags { get; set; }
-    public string PrimaryAccessKey { get; set; } = default!;
-    public string SecondaryAccessKey { get; set; } = default!;
 }

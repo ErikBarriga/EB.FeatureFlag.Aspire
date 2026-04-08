@@ -31,13 +31,6 @@ public class FeatureFlagApiClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<ProductModel?> RotateProductKeysAsync(Guid id, CancellationToken ct = default)
-    {
-        var response = await httpClient.PostAsync($"/api/products/{id}/rotate-keys", null, ct);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<ProductModel>(ct);
-    }
-
     // Environments
     public async Task<List<EnvironmentModel>> GetEnvironmentsAsync(Guid productId, CancellationToken ct = default)
         => await httpClient.GetFromJsonAsync<List<EnvironmentModel>>($"/api/products/{productId}/environments", ct) ?? [];
@@ -99,30 +92,47 @@ public class FeatureFlagApiClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
     }
 
-    // Feature Keys
-    public async Task<List<FeatureKeyModel>> GetFeatureKeysAsync(Guid sectionId, CancellationToken ct = default)
-        => await httpClient.GetFromJsonAsync<List<FeatureKeyModel>>($"/api/sections/{sectionId}/feature-keys", ct) ?? [];
+    // Feature Flags
+    public async Task<List<FeatureFlagModel>> GetFeatureFlagsByProductAsync(Guid productId, CancellationToken ct = default)
+        => await httpClient.GetFromJsonAsync<List<FeatureFlagModel>>($"/api/products/{productId}/feature-flags", ct) ?? [];
 
-    public async Task<FeatureKeyModel?> GetFeatureKeyAsync(Guid id, CancellationToken ct = default)
-        => await httpClient.GetFromJsonAsync<FeatureKeyModel>($"/api/feature-keys/{id}", ct);
+    public async Task<List<FeatureFlagModel>> GetFeatureFlagsBySectionAsync(Guid sectionId, CancellationToken ct = default)
+        => await httpClient.GetFromJsonAsync<List<FeatureFlagModel>>($"/api/sections/{sectionId}/feature-flags", ct) ?? [];
 
-    public async Task<FeatureKeyModel?> CreateFeatureKeyAsync(Guid sectionId, object request, CancellationToken ct = default)
+    public async Task<FeatureFlagModel?> GetFeatureFlagAsync(Guid id, CancellationToken ct = default)
+        => await httpClient.GetFromJsonAsync<FeatureFlagModel>($"/api/feature-flags/{id}", ct);
+
+    public async Task<FeatureFlagModel?> CreateFeatureFlagAsync(Guid sectionId, object request, CancellationToken ct = default)
     {
-        var response = await httpClient.PostAsJsonAsync($"/api/sections/{sectionId}/feature-keys", request, ct);
+        var response = await httpClient.PostAsJsonAsync($"/api/sections/{sectionId}/feature-flags", request, ct);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<FeatureKeyModel>(ct);
+        return await response.Content.ReadFromJsonAsync<FeatureFlagModel>(ct);
     }
 
-    public async Task<FeatureKeyModel?> UpdateFeatureKeyAsync(Guid id, object request, CancellationToken ct = default)
+    public async Task<FeatureFlagModel?> UpdateFeatureFlagAsync(Guid id, object request, CancellationToken ct = default)
     {
-        var response = await httpClient.PutAsJsonAsync($"/api/feature-keys/{id}", request, ct);
+        var response = await httpClient.PutAsJsonAsync($"/api/feature-flags/{id}", request, ct);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<FeatureKeyModel>(ct);
+        return await response.Content.ReadFromJsonAsync<FeatureFlagModel>(ct);
     }
 
-    public async Task DeleteFeatureKeyAsync(Guid id, CancellationToken ct = default)
+    public async Task DeleteFeatureFlagAsync(Guid id, CancellationToken ct = default)
     {
-        var response = await httpClient.DeleteAsync($"/api/feature-keys/{id}", ct);
+        var response = await httpClient.DeleteAsync($"/api/feature-flags/{id}", ct);
         response.EnsureSuccessStatusCode();
+    }
+
+    // Feature Flag Details (per-environment values)
+    public async Task<List<FeatureFlagDetailModel>> GetFeatureFlagDetailsAsync(Guid featureFlagId, CancellationToken ct = default)
+        => await httpClient.GetFromJsonAsync<List<FeatureFlagDetailModel>>($"/api/feature-flags/{featureFlagId}/details", ct) ?? [];
+
+    public async Task<FeatureFlagDetailModel?> GetFeatureFlagDetailAsync(Guid id, CancellationToken ct = default)
+        => await httpClient.GetFromJsonAsync<FeatureFlagDetailModel>($"/api/feature-flag-details/{id}", ct);
+
+    public async Task<FeatureFlagDetailModel?> UpdateFeatureFlagDetailAsync(Guid id, object request, CancellationToken ct = default)
+    {
+        var response = await httpClient.PutAsJsonAsync($"/api/feature-flag-details/{id}", request, ct);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<FeatureFlagDetailModel>(ct);
     }
 }

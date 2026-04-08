@@ -65,20 +65,6 @@ public static class ProductEndpoints
         })
         .WithName("DeleteProduct");
 
-        group.MapPost("/{id:guid}/rotate-keys", async (Guid id, IFeatureFlagProvider provider, CancellationToken ct) =>
-        {
-            try
-            {
-                var rotated = await provider.RotateProductKeysAsync(id, ct);
-                return Results.Ok(rotated);
-            }
-            catch (KeyNotFoundException)
-            {
-                return Results.NotFound();
-            }
-        })
-        .WithName("RotateProductKeys");
-
         return app;
     }
 }

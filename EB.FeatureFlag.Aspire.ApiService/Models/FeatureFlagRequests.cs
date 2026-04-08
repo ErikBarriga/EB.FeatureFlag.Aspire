@@ -3,20 +3,19 @@ using EB.FeatureFlag.Data.IRepository.Types;
 
 namespace EB.FeatureFlag.Aspire.ApiService.Models;
 
-public record CreateFeatureKeyRequest(
+public record CreateFeatureFlagRequest(
     string Name,
     FeatureKeyType Type,
-    object? Value,
     string? Description = null,
     List<string>? Tags = null,
-    string? ValidationRegex = null,
-    ExternalSourceConfigDto? ExternalConfig = null);
+    string? ValidationRegex = null);
 
-public record UpdateFeatureKeyRequest(
+public record UpdateFeatureFlagRequest(
     string Name,
-    FeatureKeyType Type,
-    object? Value,
     string? Description = null,
     List<string>? Tags = null,
-    string? ValidationRegex = null,
+    string? ValidationRegex = null);
+
+public record UpdateFeatureFlagDetailRequest(
+    object? Value,
     ExternalSourceConfigDto? ExternalConfig = null);

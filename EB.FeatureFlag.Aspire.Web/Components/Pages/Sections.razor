@@ -75,7 +75,7 @@
                         <td>@s.Description</td>
                         <td>@(s.Tags is not null ? string.Join(", ", s.Tags) : "")</td>
                         <td>
-                            <a href="/sections/@s.Id/feature-keys" class="btn btn-sm btn-outline-primary">Feature Keys</a>
+                            <a href="/sections/@s.Id/feature-flags" class="btn btn-sm btn-outline-primary">Feature Flags</a>
                             <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEdit(s)">Edit</button>
                             <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(s.Id)">Delete</button>
                         </td>
