@@ -160,6 +160,19 @@ public class FeatureFlagProvider : IFeatureFlagProvider
                 environment.SecondaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
 
             result = await _environmentRepository.AddAsync(environment, cancellationToken);
+
+            // Auto-create a FeatureFlagDetail for each existing feature flag in the product
+            var flags = await _featureFlagRepository.GetByProductIdAsync(result.ProductId, cancellationToken);
+            foreach (var flag in flags)
+            {
+                var detail = new FeatureFlagDetailDto
+                {
+                    FeatureFlagId = flag.Id,
+                    EnvironmentId = result.Id,
+                    ProductId = result.ProductId
+                };
+                await _featureFlagDetailRepository.AddAsync(detail, cancellationToken);
+            }
         }
         else
         {
@@ -359,6 +372,25 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
         if (flag != null)
         {
+            // Auto-create missing details for environments added after the flag was created
+            var environments = await _environmentRepository.GetByProductIdAsync(flag.ProductId, cancellationToken);
+            var existingEnvIds = details.Select(d => d.EnvironmentId).ToHashSet();
+
+            foreach (var env in environments)
+            {
+                if (!existingEnvIds.Contains(env.Id))
+                {
+                    var newDetail = new FeatureFlagDetailDto
+                    {
+                        FeatureFlagId = featureFlagId,
+                        EnvironmentId = env.Id,
+                        ProductId = flag.ProductId
+                    };
+                    var created = await _featureFlagDetailRepository.AddAsync(newDetail, cancellationToken);
+                    details.Add(created);
+                }
+            }
+
             for (var i = 0; i < details.Count; i++)
                 details[i] = await ResolveExternalDetailValueAsync(details[i], flag, cancellationToken) ?? details[i];
         }

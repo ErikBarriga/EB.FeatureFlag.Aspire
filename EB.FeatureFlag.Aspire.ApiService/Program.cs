@@ -1,6 +1,7 @@
 using EB.FeatureFlag.Aspire.ApiService.Endpoints;
 using EB.FeatureFlag.Data;
 using EB.FeatureFlag.Data.Repository.SQLite.Context;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +43,7 @@ app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference();
 }
 
 // Map Feature Flag endpoints

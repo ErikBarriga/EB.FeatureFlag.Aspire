@@ -15,28 +15,48 @@ public class JsonCollectionValueValidator : IFeatureKeyValueValidator
 
         if (value is JsonElement jsonElement)
         {
-            if (jsonElement.ValueKind != JsonValueKind.Array)
-                throw new FeatureKeyValidationException(
-                    $"JsonCollection value must be an array. Got JSON '{jsonElement.ValueKind}'.");
-
-            var index = 0;
-            foreach (var item in jsonElement.EnumerateArray())
+            // Accept both direct JSON arrays and JSON strings that contain an array
+            if (jsonElement.ValueKind == JsonValueKind.Array)
             {
-                if (item.ValueKind == JsonValueKind.String)
-                {
-                    var jsonString = item.GetString()!;
-                    ValidateJsonString(jsonString, index);
-                }
-                else if (item.ValueKind is not (JsonValueKind.Object or JsonValueKind.Array))
-                {
-                    throw new FeatureKeyValidationException(
-                        $"JsonCollection element at index {index} must be a JSON object, array, or valid JSON string. Got '{item.ValueKind}'.");
-                }
-
-                index++;
+                ValidateJsonElementArray(jsonElement);
+                return;
             }
 
-            return;
+            if (jsonElement.ValueKind == JsonValueKind.String)
+            {
+                var inner = jsonElement.GetString();
+                if (string.IsNullOrWhiteSpace(inner))
+                    throw new FeatureKeyValidationException("JsonCollection value must be a JSON array.");
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(inner);
+                    Validate(doc.RootElement, validationRegex);
+                    return;
+                }
+                catch (JsonException)
+                {
+                    throw new FeatureKeyValidationException("JsonCollection value must be a valid JSON array.");
+                }
+            }
+
+            throw new FeatureKeyValidationException(
+                $"JsonCollection value must be a JSON array or JSON string containing an array. Got JSON '{jsonElement.ValueKind}'.");
+        }
+
+        if (value is string rawJson)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(rawJson);
+                Validate(doc.RootElement, validationRegex);
+                return;
+            }
+            catch (JsonException)
+            {
+                throw new FeatureKeyValidationException(
+                    "JsonCollection value must be a valid JSON array.");
+            }
         }
 
         if (value is IEnumerable<string> strings)
@@ -53,6 +73,26 @@ public class JsonCollectionValueValidator : IFeatureKeyValueValidator
 
         throw new FeatureKeyValidationException(
             $"JsonCollection value must be an array. Got '{value.GetType().Name}'.");
+    }
+
+    private static void ValidateJsonElementArray(JsonElement jsonElement)
+    {
+        var index = 0;
+        foreach (var item in jsonElement.EnumerateArray())
+        {
+            if (item.ValueKind == JsonValueKind.String)
+            {
+                var jsonString = item.GetString()!;
+                ValidateJsonString(jsonString, index);
+            }
+            else if (item.ValueKind is not (JsonValueKind.Object or JsonValueKind.Array))
+            {
+                throw new FeatureKeyValidationException(
+                    $"JsonCollection element at index {index} must be a JSON object, array, or valid JSON string. Got '{item.ValueKind}'.");
+            }
+
+            index++;
+        }
     }
 
     private static void ValidateJsonString(string jsonString, int index)

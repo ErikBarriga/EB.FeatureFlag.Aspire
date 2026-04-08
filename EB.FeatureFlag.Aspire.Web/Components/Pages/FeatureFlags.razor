@@ -238,8 +238,8 @@
                                             }
                                             else
                                             {
-                                                <span style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block">
-                                                    @(detail.Value?.ToString() ?? "(not set)")
+                                                <span style="max-width:600px;display:inline-block;word-break:break-word">
+                                                    @(TruncateValue(detail.Value?.ToString(), 200))
                                                 </span>
                                             }
                                         </td>
@@ -381,6 +381,12 @@
 
     private string GetEnvironmentName(Guid environmentId)
         => _environments?.FirstOrDefault(e => e.Id == environmentId)?.Name ?? "...";
+
+    private string TruncateValue(string? value, int maxLength)
+    {
+        if (string.IsNullOrEmpty(value)) return "(not set)";
+        return value.Length <= maxLength ? value : value[..maxLength] + "...";
+    }
 
     private string GetValuePlaceholder() => (FeatureKeyType)(_detailFlag?.Type ?? 0) switch
     {
