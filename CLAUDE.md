@@ -22,6 +22,7 @@ Multitenant feature flag system:
 - `FeatureFlag_RepositoryConnectionString`
 - `FeatureFlag_CacheType`
 - `FeatureFlag_CacheConnectionString`
+- `FeatureFlag_SdkCacheTtlSeconds`
 
 ## Status
 - Phases 1-7 completed: models, repos, cache, provider, key rotation, validators, regex, external sources, SDK API, Blazor UI

@@ -10,7 +10,13 @@ public class SdkSectionFlagsDto
 
 public class SdkFeatureFlagItemDto
 {
-    public string Name { get; set; } = default!;
+    public string Key { get; set; } = default!;
+    public FeatureKeyType Type { get; set; }
+    public object? Value { get; set; }
+}
+
+public class SdkFeatureFlagValueDto
+{
     public FeatureKeyType Type { get; set; }
     public object? Value { get; set; }
 }

@@ -17,7 +17,8 @@ public class FeatureFlagProvider : IFeatureFlagProvider
     private readonly ICacheService? _cacheService;
     private readonly IFeatureKeyValueValidatorFactory? _validatorFactory;
     private readonly IExternalSourceService? _externalSourceService;
-    private static readonly TimeSpan DefaultCacheExpiration = TimeSpan.FromMinutes(10);
+    private readonly TimeSpan _sdkCacheTtl;
+    private static readonly TimeSpan DefaultCacheTtl = TimeSpan.FromMinutes(10);
 
     public FeatureFlagProvider(
         IProductRepository productRepository,
@@ -27,7 +28,8 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         IFeatureFlagDetailRepository featureFlagDetailRepository,
         ICacheService? cacheService = null,
         IFeatureKeyValueValidatorFactory? validatorFactory = null,
-        IExternalSourceService? externalSourceService = null)
+        IExternalSourceService? externalSourceService = null,
+        TimeSpan? sdkCacheTtl = null)
     {
         _productRepository = productRepository;
         _environmentRepository = environmentRepository;
@@ -37,6 +39,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         _cacheService = cacheService;
         _validatorFactory = validatorFactory;
         _externalSourceService = externalSourceService;
+        _sdkCacheTtl = sdkCacheTtl ?? DefaultCacheTtl;
     }
 
     // --- Product ---
@@ -55,7 +58,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
         var product = await _productRepository.GetByIdAsync(id, cancellationToken);
         if (product != null && _cacheService != null)
-            await _cacheService.SetAsync(cacheKey, product, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.SetAsync(cacheKey, product, DefaultCacheTtl, cancellationToken);
 
         return product;
     }
@@ -72,7 +75,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
         var products = await _productRepository.GetAllAsync(cancellationToken);
         if (_cacheService != null)
-            await _cacheService.SetAsync(cacheKey, products, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.SetAsync(cacheKey, products, DefaultCacheTtl, cancellationToken);
 
         return products;
     }
@@ -93,7 +96,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         if (_cacheService != null)
         {
             var cacheKey = GetProductCacheKey(result.Id);
-            await _cacheService.SetAsync(cacheKey, result, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.SetAsync(cacheKey, result, DefaultCacheTtl, cancellationToken);
             await _cacheService.RemoveAsync(GetAllProductsCacheKey(), cancellationToken);
         }
 
@@ -127,7 +130,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
         var environment = await _environmentRepository.GetByIdAsync(id, cancellationToken);
         if (environment != null && _cacheService != null)
-            await _cacheService.SetAsync(cacheKey, environment, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.SetAsync(cacheKey, environment, DefaultCacheTtl, cancellationToken);
 
         return environment;
     }
@@ -144,7 +147,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
         var environments = await _environmentRepository.GetByProductIdAsync(productId, cancellationToken);
         if (_cacheService != null)
-            await _cacheService.SetAsync(cacheKey, environments, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.SetAsync(cacheKey, environments, DefaultCacheTtl, cancellationToken);
 
         return environments;
     }
@@ -183,7 +186,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         if (_cacheService != null)
         {
             var cacheKey = GetEnvironmentCacheKey(result.Id);
-            await _cacheService.SetAsync(cacheKey, result, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.SetAsync(cacheKey, result, DefaultCacheTtl, cancellationToken);
             await _cacheService.RemoveAsync(GetEnvironmentsByProductCacheKey(result.ProductId), cancellationToken);
         }
 
@@ -204,7 +207,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
         if (_cacheService != null)
         {
-            await _cacheService.SetAsync(GetEnvironmentCacheKey(environmentId), environment, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.SetAsync(GetEnvironmentCacheKey(environmentId), environment, DefaultCacheTtl, cancellationToken);
             await _cacheService.RemoveAsync(GetEnvironmentsByProductCacheKey(environment.ProductId), cancellationToken);
         }
 
@@ -242,7 +245,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
         var section = await _sectionRepository.GetByIdAsync(id, cancellationToken);
         if (section != null && _cacheService != null)
-            await _cacheService.SetAsync(cacheKey, section, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.SetAsync(cacheKey, section, DefaultCacheTtl, cancellationToken);
 
         return section;
     }
@@ -259,7 +262,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
         var sections = await _sectionRepository.GetByProductIdAsync(productId, cancellationToken);
         if (_cacheService != null)
-            await _cacheService.SetAsync(cacheKey, sections, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.SetAsync(cacheKey, sections, DefaultCacheTtl, cancellationToken);
 
         return sections;
     }
@@ -283,7 +286,7 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         if (_cacheService != null)
         {
             var cacheKey = GetSectionCacheKey(result.Id);
-            await _cacheService.SetAsync(cacheKey, result, DefaultCacheExpiration, cancellationToken);
+            await _cacheService.SetAsync(cacheKey, result, DefaultCacheTtl, cancellationToken);
             await _cacheService.RemoveAsync(GetSectionsByProductCacheKey(result.ProductId), cancellationToken);
         }
 
@@ -350,8 +353,12 @@ public class FeatureFlagProvider : IFeatureFlagProvider
 
     public async Task DeleteFeatureFlagAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        var flag = await _featureFlagRepository.GetByIdAsync(id, cancellationToken);
         await _featureFlagDetailRepository.DeleteByFeatureFlagIdAsync(id, cancellationToken);
         await _featureFlagRepository.DeleteAsync(id, cancellationToken);
+
+        if (flag is not null)
+            await InvalidateSdkCacheForFlagAllEnvironmentsAsync(flag.ProductId, flag.Key, cancellationToken);
     }
 
     // --- FeatureFlagDetail (per-environment value) ---
@@ -408,87 +415,127 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         if (detail.Id == Guid.Empty)
         {
             detail.ProductId = featureFlag.ProductId;
-            return await _featureFlagDetailRepository.AddAsync(detail, cancellationToken);
+            var created = await _featureFlagDetailRepository.AddAsync(detail, cancellationToken);
+            await InvalidateSdkCacheForFlagAsync(featureFlag.ProductId, detail.EnvironmentId, featureFlag.Key, cancellationToken);
+            return created;
         }
 
         await _featureFlagDetailRepository.UpdateAsync(detail, cancellationToken);
+        await InvalidateSdkCacheForFlagAsync(featureFlag.ProductId, detail.EnvironmentId, featureFlag.Key, cancellationToken);
         return detail;
     }
 
     // --- SDK / Public API ---
     private static string GetSdkCacheKey(Guid productId, Guid environmentId) => $"FeatureFlag:Sdk:{productId}:{environmentId}";
-    private static readonly TimeSpan SdkCacheExpiration = TimeSpan.FromMinutes(5);
+    private static string GetSdkFlagCacheKey(Guid productId, Guid environmentId, string flagKey) => $"FeatureFlag:Sdk:{productId}:{environmentId}:{flagKey}";
 
-    public async Task<(ProductDto Product, EnvironmentDto Environment, IEnumerable<SdkSectionFlagsDto> Sections)?> GetFeatureFlagsByAccessKeyAsync(
-        string environmentKey, CancellationToken cancellationToken = default)
+    public async Task<(string Product, string Environment, string Section, SdkFeatureFlagItemDto Flag)?> GetFeatureFlagByKeyAndAccessKeyAsync(
+        string environmentKey, string flagKey, CancellationToken cancellationToken = default)
     {
-        var environment = await _environmentRepository.GetByAccessKeyAsync(environmentKey, cancellationToken);
-        if (environment == null) return null;
+        var env = await _environmentRepository.GetByAccessKeyAsync(environmentKey, cancellationToken);
+        if (env is null) return null;
+        var product = await GetProductByIdAsync(env.ProductId, cancellationToken);
+        if (product is null) return null;
 
-        var product = await _productRepository.GetByIdAsync(environment.ProductId, cancellationToken);
-        if (product == null) return null;
-
-        var cacheKey = GetSdkCacheKey(product.Id, environment.Id);
+        // Try per-flag cache
+        var flagCacheKey = GetSdkFlagCacheKey(product.Id, env.Id, flagKey);
         if (_cacheService != null)
         {
-            var cached = await _cacheService.GetAsync<List<SdkSectionFlagsDto>>(cacheKey, cancellationToken);
-            if (cached != null)
-                return (product, environment, cached);
+            var cached = await _cacheService.GetAsync<SdkCachedFlagEntry>(flagCacheKey, cancellationToken);
+            if (cached is not null)
+                return (product.Name, env.Name, cached.Section, cached.Flag);
         }
 
-        var sections = await _sectionRepository.GetByProductIdAsync(product.Id, cancellationToken);
-        var result = new List<SdkSectionFlagsDto>();
+        // Query only the specific flag by product + key
+        var flagDto = await _featureFlagRepository.GetByProductIdAndKeyAsync(product.Id, flagKey, cancellationToken);
+        if (flagDto is null) return null;
 
-        foreach (var section in sections)
+        // Resolve section name (from cache if available)
+        var section = await GetSectionByIdAsync(flagDto.SectionId, cancellationToken);
+
+        // Get detail for this specific environment only
+        var detail = await _featureFlagDetailRepository.GetByFeatureFlagIdAndEnvironmentIdAsync(flagDto.Id, env.Id, cancellationToken);
+        if (detail != null)
+            detail = await ResolveExternalDetailValueAsync(detail, flagDto, cancellationToken);
+
+        var sdkFlag = new SdkFeatureFlagItemDto
         {
-            var flags = await _featureFlagRepository.GetBySectionIdAsync(section.Id, cancellationToken);
-            var sdkFlags = new List<SdkFeatureFlagItemDto>();
+            Key = flagDto.Key,
+            Type = flagDto.Type,
+            Value = detail?.Value
+        };
 
-            foreach (var flag in flags)
-            {
-                var details = await _featureFlagDetailRepository.GetByFeatureFlagIdAsync(flag.Id, cancellationToken);
-                var detail = details.FirstOrDefault(d => d.EnvironmentId == environment.Id);
-
-                if (detail != null)
-                    detail = await ResolveExternalDetailValueAsync(detail, flag, cancellationToken);
-
-                sdkFlags.Add(new SdkFeatureFlagItemDto
-                {
-                    Name = flag.Name,
-                    Type = flag.Type,
-                    Value = detail?.Value
-                });
-            }
-
-            result.Add(new SdkSectionFlagsDto
-            {
-                SectionName = section.Name,
-                FeatureFlags = sdkFlags
-            });
+        // Cache only this individual flag
+        if (_cacheService != null)
+        {
+            var entry = new SdkCachedFlagEntry { Section = section?.Name ?? string.Empty, Flag = sdkFlag };
+            await _cacheService.SetAsync(flagCacheKey, entry, _sdkCacheTtl, cancellationToken);
         }
 
-        if (_cacheService != null)
-            await _cacheService.SetAsync(cacheKey, result, SdkCacheExpiration, cancellationToken);
-
-        return (product, environment, result);
+        return (product.Name, env.Name, section?.Name ?? string.Empty, sdkFlag);
     }
 
-    public async Task<(string Product, string Environment, string Section, SdkFeatureFlagItemDto Flag)?> GetFeatureFlagByNameAndAccessKeyAsync(
-        string environmentKey, string flagName, CancellationToken cancellationToken = default)
+    private static string GetSdkFlagValueCacheKey(Guid productId, Guid environmentId, string flagKey) => $"FeatureFlag:SdkValue:{productId}:{environmentId}:{flagKey}";
+
+    public async Task<SdkFeatureFlagValueDto?> GetFeatureFlagValueByKeyAndAccessKeyAsync(
+        string environmentKey, string flagKey, CancellationToken cancellationToken = default)
     {
-        var all = await GetFeatureFlagsByAccessKeyAsync(environmentKey, cancellationToken);
-        if (all is null) return null;
+        var env = await _environmentRepository.GetByAccessKeyAsync(environmentKey, cancellationToken);
+        if (env is null) return null;
 
-        var (product, environment, sections) = all.Value;
-
-        foreach (var sec in sections)
+        // Try cache
+        var cacheKey = GetSdkFlagValueCacheKey(env.ProductId, env.Id, flagKey);
+        if (_cacheService != null)
         {
-            var flag = sec.FeatureFlags.FirstOrDefault(f => string.Equals(f.Name, flagName, StringComparison.OrdinalIgnoreCase));
-            if (flag is not null)
-                return (product.Name, environment.Name, sec.SectionName, flag);
+            var cached = await _cacheService.GetAsync<SdkFeatureFlagValueDto>(cacheKey, cancellationToken);
+            if (cached is not null)
+                return cached;
         }
 
-        return null;
+        // Get flag definition (only need type)
+        var flagDto = await _featureFlagRepository.GetByProductIdAndKeyAsync(env.ProductId, flagKey, cancellationToken);
+        if (flagDto is null) return null;
+
+        // Get detail for this specific environment
+        var detail = await _featureFlagDetailRepository.GetByFeatureFlagIdAndEnvironmentIdAsync(flagDto.Id, env.Id, cancellationToken);
+        if (detail != null)
+            detail = await ResolveExternalDetailValueAsync(detail, flagDto, cancellationToken);
+
+        var result = new SdkFeatureFlagValueDto
+        {
+            Type = flagDto.Type,
+            Value = detail?.Value
+        };
+
+        // Cache
+        if (_cacheService != null)
+            await _cacheService.SetAsync(cacheKey, result, _sdkCacheTtl, cancellationToken);
+
+        return result;
+    }
+
+    private async Task InvalidateSdkCacheForFlagAsync(Guid productId, Guid environmentId, string flagKey, CancellationToken cancellationToken)
+    {
+        if (_cacheService is null) return;
+        await _cacheService.RemoveAsync(GetSdkFlagCacheKey(productId, environmentId, flagKey), cancellationToken);
+        await _cacheService.RemoveAsync(GetSdkFlagValueCacheKey(productId, environmentId, flagKey), cancellationToken);
+    }
+
+    private async Task InvalidateSdkCacheForFlagAllEnvironmentsAsync(Guid productId, string flagKey, CancellationToken cancellationToken)
+    {
+        if (_cacheService is null) return;
+        var environments = await _environmentRepository.GetByProductIdAsync(productId, cancellationToken);
+        foreach (var env in environments)
+        {
+            await _cacheService.RemoveAsync(GetSdkFlagCacheKey(productId, env.Id, flagKey), cancellationToken);
+            await _cacheService.RemoveAsync(GetSdkFlagValueCacheKey(productId, env.Id, flagKey), cancellationToken);
+        }
+    }
+
+    private class SdkCachedFlagEntry
+    {
+        public string Section { get; set; } = default!;
+        public SdkFeatureFlagItemDto Flag { get; set; } = default!;
     }
 
     private async Task<FeatureFlagDetailDto?> ResolveExternalDetailValueAsync(FeatureFlagDetailDto? detail, FeatureFlagDto flag, CancellationToken cancellationToken)

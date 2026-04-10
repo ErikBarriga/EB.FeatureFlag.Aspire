@@ -34,6 +34,13 @@ public class FeatureFlagRepository : IFeatureFlagRepository
         return entities.Select(ff => ff.ToDto());
     }
 
+    public async Task<FeatureFlagDto?> GetByProductIdAndKeyAsync(Guid productId, string key, CancellationToken cancellationToken = default)
+    {
+        var entity = await _dbContext.FeatureFlags
+            .FirstOrDefaultAsync(ff => ff.ProductId == productId && ff.Key == key, cancellationToken);
+        return entity?.ToDto();
+    }
+
     public async Task<FeatureFlagDto> AddAsync(FeatureFlagDto featureFlag, CancellationToken cancellationToken = default)
     {
         var entity = featureFlag.ToEntity();
@@ -46,7 +53,7 @@ public class FeatureFlagRepository : IFeatureFlagRepository
     {
         var entity = await _dbContext.FeatureFlags.FindAsync(new object[] { featureFlag.Id }, cancellationToken);
         if (entity == null) return;
-        entity.Name = featureFlag.Name;
+        entity.Key = featureFlag.Key;
         entity.Description = featureFlag.Description;
         entity.Tags = featureFlag.Tags;
         entity.ValidationRegex = featureFlag.ValidationRegex;

@@ -10,8 +10,8 @@ public static class SdkEndpoints
         var group = app.MapGroup("/api/sdk")
             .WithTags("SDK");
 
-        group.MapGet("/feature-flags/{name}", async (
-            string name,
+        group.MapGet("/feature-flags/{key}", async (
+            string key,
             HttpContext httpContext,
             IFeatureFlagProvider provider,
             CancellationToken ct) =>
@@ -21,23 +21,48 @@ public static class SdkEndpoints
             if (string.IsNullOrWhiteSpace(envKey))
                 return Results.Problem("Header 'X-Environment-Key' is required.", statusCode: 400);
 
-            var result = await provider.GetFeatureFlagByNameAndAccessKeyAsync(envKey, name, ct);
+            var result = await provider.GetFeatureFlagByKeyAndAccessKeyAsync(envKey, key, ct);
             if (result is null)
-                return Results.NotFound(new { error = $"Feature flag '{name}' not found or invalid access key." });
+                return Results.NotFound(new { error = $"Feature flag '{key}' not found or invalid access key." });
 
             var (product, environment, section, flag) = result.Value;
 
-            return Results.Ok(new SdkSingleFeatureFlagResponse(
+            return Results.Ok(new SdkFeatureFlagResponse(
                 Product: product,
                 Environment: environment,
                 Section: section,
-                Name: flag.Name,
+                Key: flag.Key,
                 Type: flag.Type,
                 Value: flag.Value
             ));
         })
-        .WithName("GetFeatureFlagByName")
-        .Produces<SdkSingleFeatureFlagResponse>(200)
+        .WithName("GetFeatureFlagByKey")
+        .Produces<SdkFeatureFlagResponse>(200)
+        .Produces(400)
+        .Produces(404);
+
+        group.MapGet("/feature-flags/{key}/value", async (
+            string key,
+            HttpContext httpContext,
+            IFeatureFlagProvider provider,
+            CancellationToken ct) =>
+        {
+            var envKey = httpContext.Request.Headers["X-Environment-Key"].FirstOrDefault();
+
+            if (string.IsNullOrWhiteSpace(envKey))
+                return Results.Problem("Header 'X-Environment-Key' is required.", statusCode: 400);
+
+            var result = await provider.GetFeatureFlagValueByKeyAndAccessKeyAsync(envKey, key, ct);
+            if (result is null)
+                return Results.NotFound(new { error = $"Feature flag '{key}' not found or invalid access key." });
+
+            return Results.Ok(new SdkFeatureFlagValueResponse(
+                Type: result.Type,
+                Value: result.Value
+            ));
+        })
+        .WithName("GetFeatureFlagValueByKey")
+        .Produces<SdkFeatureFlagValueResponse>(200)
         .Produces(400)
         .Produces(404);
 

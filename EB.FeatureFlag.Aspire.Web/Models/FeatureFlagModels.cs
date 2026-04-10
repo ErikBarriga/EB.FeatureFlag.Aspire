@@ -49,7 +49,7 @@ public class FeatureFlagModel
     public Guid Id { get; set; }
     public Guid ProductId { get; set; }
     public Guid SectionId { get; set; }
-    public string Name { get; set; } = string.Empty;
+    public string Key { get; set; } = string.Empty;
     public string? Description { get; set; }
     public List<string>? Tags { get; set; }
     public int Type { get; set; }
@@ -79,7 +79,13 @@ public class SdkSingleFeatureFlagResponseModel
     public string Product { get; set; } = string.Empty;
     public string Environment { get; set; } = string.Empty;
     public string Section { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
+    public string Key { get; set; } = string.Empty;
+    public int Type { get; set; }
+    public object? Value { get; set; }
+}
+
+public class SdkFeatureFlagValueResponseModel
+{
     public int Type { get; set; }
     public object? Value { get; set; }
 }

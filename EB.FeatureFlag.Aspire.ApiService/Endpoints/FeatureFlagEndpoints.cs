@@ -8,9 +8,9 @@ namespace EB.FeatureFlag.Aspire.ApiService.Endpoints;
 public static partial class FeatureFlagEndpoints
 {
     [GeneratedRegex(@"^[a-zA-Z0-9_\-\.\&\$]+$")]
-    private static partial Regex FeatureFlagNameRegex();
+    private static partial Regex FeatureFlagKeyRegex();
 
-    private static bool IsValidFlagName(string name) => FeatureFlagNameRegex().IsMatch(name);
+    private static bool IsValidFlagKey(string key) => FeatureFlagKeyRegex().IsMatch(key);
 
     public static IEndpointRouteBuilder MapFeatureFlagEndpoints(this IEndpointRouteBuilder app)
     {
@@ -44,13 +44,13 @@ public static partial class FeatureFlagEndpoints
         // Create feature flag under a section (auto-creates details for each environment)
         group.MapPost("/sections/{sectionId:guid}/feature-flags", async (Guid sectionId, CreateFeatureFlagRequest request, IFeatureFlagProvider provider, CancellationToken ct) =>
         {
-            if (!IsValidFlagName(request.Name))
-                return Results.BadRequest(new { error = "Feature flag name must contain only alphanumeric characters and _ - . & $ (no spaces)." });
+            if (!IsValidFlagKey(request.Key))
+                return Results.BadRequest(new { error = "Feature flag key must contain only alphanumeric characters and _ - . & $ (no spaces)." });
 
             var dto = new FeatureFlagDto
             {
                 SectionId = sectionId,
-                Name = request.Name,
+                Key = request.Key,
                 Description = request.Description,
                 Tags = request.Tags,
                 Type = request.Type,
@@ -72,14 +72,14 @@ public static partial class FeatureFlagEndpoints
         // Update feature flag
         group.MapPut("/feature-flags/{id:guid}", async (Guid id, UpdateFeatureFlagRequest request, IFeatureFlagProvider provider, CancellationToken ct) =>
         {
-            if (!IsValidFlagName(request.Name))
-                return Results.BadRequest(new { error = "Feature flag name must contain only alphanumeric characters and _ - . & $ (no spaces)." });
+            if (!IsValidFlagKey(request.Key))
+                return Results.BadRequest(new { error = "Feature flag key must contain only alphanumeric characters and _ - . & $ (no spaces)." });
 
             var existing = await provider.GetFeatureFlagByIdAsync(id, ct);
             if (existing is null)
                 return Results.NotFound();
 
-            existing.Name = request.Name;
+            existing.Key = request.Key;
             existing.Description = request.Description;
             existing.Tags = request.Tags;
             existing.ValidationRegex = request.ValidationRegex;

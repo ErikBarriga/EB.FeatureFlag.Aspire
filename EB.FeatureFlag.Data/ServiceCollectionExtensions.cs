@@ -60,7 +60,7 @@ public static class ServiceCollectionExtensions
         services.AddFeatureFlagRepository(options);
         services.AddFeatureFlagCache(options);
         services.AddFeatureFlagValidators();
-        services.AddFeatureFlagProvider();
+        services.AddFeatureFlagProvider(options);
 
         return services;
     }
@@ -141,10 +141,12 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    private static IServiceCollection AddFeatureFlagProvider(this IServiceCollection services)
+    private static IServiceCollection AddFeatureFlagProvider(this IServiceCollection services, FeatureFlagDataOptions options)
     {
         services.AddHttpClient();
         services.AddScoped<IExternalSourceService, ExternalSourceService>();
+
+        var sdkCacheTtl = TimeSpan.FromSeconds(Math.Clamp(options.SdkCacheTtlSeconds, 10, 604800));
 
         services.AddScoped<IFeatureFlagProvider>(sp =>
         {
@@ -158,7 +160,7 @@ public static class ServiceCollectionExtensions
             var externalSourceService = sp.GetService<IExternalSourceService>();
 
             return new FeatureFlagProvider(
-                productRepo, environmentRepo, sectionRepo, featureFlagRepo, featureFlagDetailRepo, cacheService, validatorFactory, externalSourceService);
+                productRepo, environmentRepo, sectionRepo, featureFlagRepo, featureFlagDetailRepo, cacheService, validatorFactory, externalSourceService, sdkCacheTtl);
         });
 
         return services;

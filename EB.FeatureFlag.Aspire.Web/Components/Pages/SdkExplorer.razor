@@ -6,7 +6,7 @@
 <PageTitle>SDK Explorer</PageTitle>
 
 <h1>SDK Explorer</h1>
-<p class="text-muted">Test the SDK endpoint by querying a single feature flag by name using an environment access key.</p>
+<p class="text-muted">Test the SDK endpoints by querying a feature flag using an environment access key.</p>
 
 @if (_error is not null)
 {
@@ -24,69 +24,83 @@
                 <input class="form-control" @bind="_accessKey" placeholder="Paste a Primary or Secondary access key" />
             </div>
             <div class="col-md-6">
-                <label class="form-label"><strong>Feature Flag Name</strong></label>
-                <input class="form-control" @bind="_flagName" placeholder="e.g. LoggerLevel_1-DEMO" />
+                <label class="form-label"><strong>Feature Flag Key</strong></label>
+                <input class="form-control" @bind="_flagKey" placeholder="e.g. LoggerLevel_1-DEMO" />
             </div>
         </div>
-        <button class="btn btn-primary" @onclick="FetchFlag" disabled="@(_loading || string.IsNullOrWhiteSpace(_accessKey) || string.IsNullOrWhiteSpace(_flagName))">
+        <ul class="nav nav-tabs mb-3">
+            <li class="nav-item">
+                <button class="nav-link @(_mode == "full" ? "active" : "")" @onclick='() => _mode = "full"'>Full Details</button>
+            </li>
+            <li class="nav-item">
+                <button class="nav-link @(_mode == "value" ? "active" : "")" @onclick='() => _mode = "value"'>Value Only</button>
+            </li>
+        </ul>
+        <button class="btn btn-primary" @onclick="Fetch" disabled="@(_loading || string.IsNullOrWhiteSpace(_accessKey) || string.IsNullOrWhiteSpace(_flagKey))">
             @(_loading ? "Loading..." : "Fetch Feature Flag")
         </button>
     </div>
 </div>
 
-@if (_result is not null)
+@if (_fullResult is not null)
 {
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
             <div>
-                <span class="badge bg-primary me-1">@_result.Product</span>
-                <span class="badge bg-success me-1">@_result.Environment</span>
-                <span class="badge bg-secondary">@_result.Section</span>
+                <span class="badge bg-primary me-1">@_fullResult.Product</span>
+                <span class="badge bg-success me-1">@_fullResult.Environment</span>
+                <span class="badge bg-secondary">@_fullResult.Section</span>
             </div>
-            <span class="badge bg-info">@((FeatureKeyType)_result.Type)</span>
+            <span class="badge bg-info">@((FeatureKeyType)_fullResult.Type)</span>
         </div>
         <div class="card-body">
-            <h5 class="card-title"><code>@_result.Name</code></h5>
+            <h5 class="card-title"><code>@_fullResult.Key</code></h5>
             <div class="mt-3">
                 <label class="form-label text-muted"><strong>Value</strong></label>
-                @if (_result.Value is null)
-                {
-                    <div class="text-muted fst-italic">(not set)</div>
-                }
-                else if ((FeatureKeyType)_result.Type == FeatureKeyType.Boolean)
-                {
-                    var boolVal = _result.Value?.ToString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true
-                               || _result.Value?.ToString()?.Equals("True", StringComparison.OrdinalIgnoreCase) == true;
-                    <div><span class="badge fs-6 @(boolVal ? "bg-success" : "bg-danger")">@_result.Value</span></div>
-                }
-                else
-                {
-                    <pre class="bg-light p-3 rounded border" style="white-space:pre-wrap;word-break:break-word">@_result.Value</pre>
-                }
+                @RenderValue(_fullResult.Type, _fullResult.Value)
             </div>
+        </div>
+    </div>
+}
+
+@if (_valueResult is not null)
+{
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span class="text-muted">Value Only Response</span>
+            <span class="badge bg-info">@((FeatureKeyType)_valueResult.Type)</span>
+        </div>
+        <div class="card-body">
+            @RenderValue(_valueResult.Type, _valueResult.Value)
         </div>
     </div>
 }
 
 @code {
     private string _accessKey = string.Empty;
-    private string _flagName = string.Empty;
+    private string _flagKey = string.Empty;
+    private string _mode = "full";
     private string? _error;
     private bool _loading;
-    private SdkSingleFeatureFlagResponseModel? _result;
+    private SdkSingleFeatureFlagResponseModel? _fullResult;
+    private SdkFeatureFlagValueResponseModel? _valueResult;
 
-    private async Task FetchFlag()
+    private async Task Fetch()
     {
         _loading = true;
         _error = null;
-        _result = null;
+        _fullResult = null;
+        _valueResult = null;
         try
         {
-            _result = await Api.GetSdkFeatureFlagAsync(_accessKey.Trim(), _flagName.Trim());
+            if (_mode == "full")
+                _fullResult = await Api.GetSdkFeatureFlagAsync(_accessKey.Trim(), _flagKey.Trim());
+            else
+                _valueResult = await Api.GetSdkFeatureFlagValueAsync(_accessKey.Trim(), _flagKey.Trim());
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            _error = $"Feature flag '{_flagName.Trim()}' was not found. Verify the flag name and access key.";
+            _error = $"Feature flag '{_flagKey.Trim()}' was not found. Verify the flag key and access key.";
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
         {
@@ -98,4 +112,34 @@
         }
         finally { _loading = false; }
     }
+
+    private RenderFragment RenderValue(int type, object? value) => builder =>
+    {
+        if (value is null)
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "text-muted fst-italic");
+            builder.AddContent(2, "(not set)");
+            builder.CloseElement();
+        }
+        else if ((FeatureKeyType)type == FeatureKeyType.Boolean)
+        {
+            var boolVal = value.ToString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true
+                       || value.ToString()?.Equals("True", StringComparison.OrdinalIgnoreCase) == true;
+            builder.OpenElement(0, "div");
+            builder.OpenElement(1, "span");
+            builder.AddAttribute(2, "class", $"badge fs-6 {(boolVal ? "bg-success" : "bg-danger")}");
+            builder.AddContent(3, value);
+            builder.CloseElement();
+            builder.CloseElement();
+        }
+        else
+        {
+            builder.OpenElement(0, "pre");
+            builder.AddAttribute(1, "class", "bg-light p-3 rounded border");
+            builder.AddAttribute(2, "style", "white-space:pre-wrap;word-break:break-word");
+            builder.AddContent(3, value);
+            builder.CloseElement();
+        }
+    };
 }

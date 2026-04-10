@@ -4,14 +4,14 @@ using EB.FeatureFlag.Data.IRepository.Types;
 namespace EB.FeatureFlag.Aspire.ApiService.Models;
 
 public record CreateFeatureFlagRequest(
-    string Name,
+    string Key,
     FeatureKeyType Type,
     string? Description = null,
     List<string>? Tags = null,
     string? ValidationRegex = null);
 
 public record UpdateFeatureFlagRequest(
-    string Name,
+    string Key,
     string? Description = null,
     List<string>? Tags = null,
     string? ValidationRegex = null);

@@ -24,6 +24,9 @@ builder.Services.AddFeatureFlagData(options =>
     var cacheType = builder.Configuration["FeatureFlag_CacheType"] ?? "None";
     options.CacheType = Enum.Parse<FeatureFlagCacheType>(cacheType, ignoreCase: true);
     options.CacheConnectionString = builder.Configuration["FeatureFlag_CacheConnectionString"] ?? string.Empty;
+
+    if (int.TryParse(builder.Configuration["FeatureFlag_SdkCacheTtlSeconds"], out var ttl))
+        options.SdkCacheTtlSeconds = Math.Clamp(ttl, 10, 604800);
 });
 
 var app = builder.Build();

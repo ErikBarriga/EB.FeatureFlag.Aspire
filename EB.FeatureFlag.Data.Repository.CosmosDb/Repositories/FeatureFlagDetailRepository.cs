@@ -26,6 +26,13 @@ public class FeatureFlagDetailRepository : IFeatureFlagDetailRepository
         return entities.Select(d => d.ToDto());
     }
 
+    public async Task<FeatureFlagDetailDto?> GetByFeatureFlagIdAndEnvironmentIdAsync(Guid featureFlagId, Guid environmentId, CancellationToken cancellationToken = default)
+    {
+        var entity = await _dbContext.FeatureFlagDetails
+            .FirstOrDefaultAsync(d => d.FeatureFlagId == featureFlagId && d.EnvironmentId == environmentId, cancellationToken);
+        return entity?.ToDto();
+    }
+
     public async Task<FeatureFlagDetailDto> AddAsync(FeatureFlagDetailDto detail, CancellationToken cancellationToken = default)
     {
         var entity = detail.ToEntity();

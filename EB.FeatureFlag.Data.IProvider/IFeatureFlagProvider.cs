@@ -36,9 +36,9 @@ public interface IFeatureFlagProvider
     Task<FeatureFlagDetailDto> UpsertFeatureFlagDetailAsync(FeatureFlagDetailDto detail, FeatureFlagDto featureFlag, CancellationToken cancellationToken = default);
 
     // SDK / Public API
-    Task<(ProductDto Product, EnvironmentDto Environment, IEnumerable<SdkSectionFlagsDto> Sections)?> GetFeatureFlagsByAccessKeyAsync(
-        string environmentKey, CancellationToken cancellationToken = default);
+    Task<(string Product, string Environment, string Section, SdkFeatureFlagItemDto Flag)?> GetFeatureFlagByKeyAndAccessKeyAsync(
+        string environmentKey, string flagKey, CancellationToken cancellationToken = default);
 
-    Task<(string Product, string Environment, string Section, SdkFeatureFlagItemDto Flag)?> GetFeatureFlagByNameAndAccessKeyAsync(
-        string environmentKey, string flagName, CancellationToken cancellationToken = default);
+    Task<SdkFeatureFlagValueDto?> GetFeatureFlagValueByKeyAndAccessKeyAsync(
+        string environmentKey, string flagKey, CancellationToken cancellationToken = default);
 }
