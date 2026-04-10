@@ -76,6 +76,19 @@
     </div>
 }
 
+<div class="card mt-4">
+    <div class="card-header"><strong>API Reference</strong></div>
+    <div class="card-body">
+        <p class="mb-2">You can call these endpoints directly from any HTTP client:</p>
+        <h6>Value Only</h6>
+        <pre class="bg-body-secondary p-3 rounded border mb-3"><code>curl -H "X-Environment-Key: @(string.IsNullOrWhiteSpace(_accessKey) ? "{your-access-key}" : _accessKey)" \
+  /api/sdk/feature-flags/@(string.IsNullOrWhiteSpace(_flagKey) ? "{flag-key}" : _flagKey)/value</code></pre>
+        <h6>Full Details</h6>
+        <pre class="bg-body-secondary p-3 rounded border mb-0"><code>curl -H "X-Environment-Key: @(string.IsNullOrWhiteSpace(_accessKey) ? "{your-access-key}" : _accessKey)" \
+  /api/sdk/feature-flags/@(string.IsNullOrWhiteSpace(_flagKey) ? "{flag-key}" : _flagKey)</code></pre>
+    </div>
+</div>
+
 @code {
     private string _accessKey = string.Empty;
     private string _flagKey = string.Empty;

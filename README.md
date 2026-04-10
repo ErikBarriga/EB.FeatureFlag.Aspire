@@ -224,3 +224,7 @@ X-Environment-Key: your-environment-access-key
 ```
 
 The response is cached for 5 minutes per product+environment combination.
+
+---
+
+> **Note:** ~98% of this project was built with AI (Claude Code and GitHub Copilot).
