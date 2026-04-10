@@ -30,10 +30,10 @@
         </div>
         <ul class="nav nav-tabs mb-3">
             <li class="nav-item">
-                <button class="nav-link @(_mode == "full" ? "active" : "")" @onclick='() => _mode = "full"'>Full Details</button>
+                <button class="nav-link @(_mode == "value" ? "active" : "")" @onclick='() => _mode = "value"'>Value Only</button>
             </li>
             <li class="nav-item">
-                <button class="nav-link @(_mode == "value" ? "active" : "")" @onclick='() => _mode = "value"'>Value Only</button>
+                <button class="nav-link @(_mode == "full" ? "active" : "")" @onclick='() => _mode = "full"'>Full Details</button>
             </li>
         </ul>
         <button class="btn btn-primary" @onclick="Fetch" disabled="@(_loading || string.IsNullOrWhiteSpace(_accessKey) || string.IsNullOrWhiteSpace(_flagKey))">
@@ -79,7 +79,7 @@
 @code {
     private string _accessKey = string.Empty;
     private string _flagKey = string.Empty;
-    private string _mode = "full";
+    private string _mode = "value";
     private string? _error;
     private bool _loading;
     private SdkSingleFeatureFlagResponseModel? _fullResult;
@@ -136,7 +136,7 @@
         else
         {
             builder.OpenElement(0, "pre");
-            builder.AddAttribute(1, "class", "bg-light p-3 rounded border");
+            builder.AddAttribute(1, "class", "bg-body-secondary p-3 rounded border");
             builder.AddAttribute(2, "style", "white-space:pre-wrap;word-break:break-word");
             builder.AddContent(3, value);
             builder.CloseElement();
