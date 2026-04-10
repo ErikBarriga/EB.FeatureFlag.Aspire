@@ -1,0 +1,40 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+
+<PageTitle>Settings</PageTitle>
+
+<h1>Settings</h1>
+
+<div class="card mt-3" style="max-width:500px">
+    <div class="card-header"><strong>Appearance</strong></div>
+    <div class="card-body">
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="darkModeSwitch" checked="@_isDark" @onchange="ToggleTheme" />
+            <label class="form-check-label" for="darkModeSwitch">
+                Dark mode
+            </label>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool _isDark;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var theme = await JS.InvokeAsync<string>("themeManager.get");
+            _isDark = theme == "dark";
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleTheme(ChangeEventArgs e)
+    {
+        _isDark = (bool)e.Value!;
+        var theme = _isDark ? "dark" : "light";
+        await JS.InvokeVoidAsync("themeManager.set", theme);
+    }
+}
