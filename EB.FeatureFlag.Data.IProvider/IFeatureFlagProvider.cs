@@ -15,7 +15,7 @@ public interface IFeatureFlagProvider
     Task<IEnumerable<EnvironmentDto>> GetEnvironmentsByProductIdAsync(Guid productId, CancellationToken cancellationToken = default);
     Task<EnvironmentDto> UpsertEnvironmentAsync(EnvironmentDto environment, CancellationToken cancellationToken = default);
     Task DeleteEnvironmentAsync(Guid id, CancellationToken cancellationToken = default);
-    Task<EnvironmentDto> RotateEnvironmentKeysAsync(Guid environmentId, CancellationToken cancellationToken = default);
+    Task<EnvironmentDto> RotateEnvironmentKeysAsync(Guid environmentId, string keyType, CancellationToken cancellationToken = default);
 
     // Section operations
     Task<SectionDto?> GetSectionByIdAsync(Guid id, CancellationToken cancellationToken = default);

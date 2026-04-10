@@ -38,11 +38,11 @@ public class FeatureFlagApiClient(HttpClient httpClient)
     public async Task<EnvironmentModel?> GetEnvironmentAsync(Guid id, CancellationToken ct = default)
         => await httpClient.GetFromJsonAsync<EnvironmentModel>($"/api/environments/{id}", ct);
 
-    public async Task<EnvironmentModel?> CreateEnvironmentAsync(Guid productId, object request, CancellationToken ct = default)
+    public async Task<EnvironmentCreatedModel?> CreateEnvironmentAsync(Guid productId, object request, CancellationToken ct = default)
     {
         var response = await httpClient.PostAsJsonAsync($"/api/products/{productId}/environments", request, ct);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<EnvironmentModel>(ct);
+        return await response.Content.ReadFromJsonAsync<EnvironmentCreatedModel>(ct);
     }
 
     public async Task<EnvironmentModel?> UpdateEnvironmentAsync(Guid id, object request, CancellationToken ct = default)
@@ -58,11 +58,11 @@ public class FeatureFlagApiClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
     }
 
-    public async Task<EnvironmentModel?> RotateEnvironmentKeysAsync(Guid id, CancellationToken ct = default)
+    public async Task<EnvironmentRotatedKeyModel?> RotateEnvironmentKeysAsync(Guid id, string keyType, CancellationToken ct = default)
     {
-        var response = await httpClient.PostAsync($"/api/environments/{id}/rotate-keys", null, ct);
+        var response = await httpClient.PostAsJsonAsync($"/api/environments/{id}/rotate-keys", new { KeyType = keyType }, ct);
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<EnvironmentModel>(ct);
+        return await response.Content.ReadFromJsonAsync<EnvironmentRotatedKeyModel>(ct);
     }
 
     // Sections

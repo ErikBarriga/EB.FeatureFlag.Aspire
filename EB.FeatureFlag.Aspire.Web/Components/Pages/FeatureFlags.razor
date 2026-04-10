@@ -96,17 +96,49 @@
                         <td>@GetSectionName(ff.SectionId)</td>
                         <td><span class="badge bg-info">@((FeatureKeyType)ff.Type)</span></td>
                         <td>@ff.Description</td>
-                        <td>@(ff.Tags is not null ? string.Join(", ", ff.Tags) : "")</td>
+                        <td>@if (ff.Tags is not null) { @foreach (var tag in ff.Tags) { <span class="badge rounded-pill bg-secondary me-1">@tag</span> } }</td>
                         <td>
                             <button class="btn btn-sm btn-outline-primary" @onclick="() => ShowDetails(ff)">Details</button>
                             <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEdit(ff)">Edit</button>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(ff.Id)">Delete</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeleteConfirm(ff.Id, ff.Name)">Delete</button>
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
     }
+}
+
+@if (_confirmDeleteName is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDeleteConfirm"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger mb-3">
+                        <strong>Warning:</strong> You are about to delete the feature flag <strong>@_confirmDeleteName</strong>.
+                        All per-environment values for this flag will also be removed.
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="confirmDeleteCheck" @bind="_confirmDeleteChecked" />
+                        <label class="form-check-label" for="confirmDeleteCheck">
+                            I understand and want to delete this feature flag
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelDeleteConfirm">Cancel</button>
+                    <button class="btn btn-danger" disabled="@(!_confirmDeleteChecked || _deleting)" @onclick="ConfirmDelete">
+                        @(_deleting ? "Deleting..." : "Delete")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 @* Create / Edit Feature Flag modal *@
@@ -283,6 +315,12 @@
     private Guid _selectedProductId;
     private Guid _filterSectionId;
     private string? _error;
+
+    // Delete confirmation
+    private Guid _confirmDeleteId;
+    private string? _confirmDeleteName;
+    private bool _confirmDeleteChecked;
+    private bool _deleting;
 
     // Computed filtered list
     private List<FeatureFlagModel> _filteredFlags =>
@@ -465,15 +503,32 @@
         finally { _saving = false; }
     }
 
-    private async Task Delete(Guid id)
+    private void ShowDeleteConfirm(Guid id, string name)
     {
+        _confirmDeleteId = id;
+        _confirmDeleteName = name;
+        _confirmDeleteChecked = false;
+    }
+
+    private void CancelDeleteConfirm()
+    {
+        _confirmDeleteName = null;
+        _confirmDeleteChecked = false;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        _deleting = true;
         _error = null;
         try
         {
-            await Api.DeleteFeatureFlagAsync(id);
+            await Api.DeleteFeatureFlagAsync(_confirmDeleteId);
+            _confirmDeleteName = null;
+            _confirmDeleteChecked = false;
             _featureFlags = await Api.GetFeatureFlagsByProductAsync(_selectedProductId);
         }
         catch (Exception ex) { _error = ex.Message; }
+        finally { _deleting = false; }
     }
 
     // --- Details (per-environment values) ---

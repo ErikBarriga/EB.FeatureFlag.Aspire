@@ -73,17 +73,49 @@
                     <tr>
                         <td>@s.Name</td>
                         <td>@s.Description</td>
-                        <td>@(s.Tags is not null ? string.Join(", ", s.Tags) : "")</td>
+                        <td>@if (s.Tags is not null) { @foreach (var tag in s.Tags) { <span class="badge rounded-pill bg-secondary me-1">@tag</span> } }</td>
                         <td>
                             <a href="/sections/@s.Id/feature-flags" class="btn btn-sm btn-outline-primary">Feature Flags</a>
                             <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEdit(s)">Edit</button>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(s.Id)">Delete</button>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeleteConfirm(s.Id, s.Name)">Delete</button>
                         </td>
                     </tr>
                 }
             </tbody>
         </table>
     }
+}
+
+@if (_confirmDeleteName is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDeleteConfirm"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger mb-3">
+                        <strong>Warning:</strong> You are about to delete the section <strong>@_confirmDeleteName</strong>.
+                        All feature flags within this section will also be removed.
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="confirmDeleteCheck" @bind="_confirmDeleteChecked" />
+                        <label class="form-check-label" for="confirmDeleteCheck">
+                            I understand and want to delete this section
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelDeleteConfirm">Cancel</button>
+                    <button class="btn btn-danger" disabled="@(!_confirmDeleteChecked || _deleting)" @onclick="ConfirmDelete">
+                        @(_deleting ? "Deleting..." : "Delete")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 }
 
 @if (_showForm)
@@ -128,6 +160,11 @@
     private List<SectionModel>? _sections;
     private string? _productName;
     private string? _error;
+
+    private Guid _confirmDeleteId;
+    private string? _confirmDeleteName;
+    private bool _confirmDeleteChecked;
+    private bool _deleting;
 
     private bool _showForm;
     private bool _saving;
@@ -220,14 +257,31 @@
         finally { _saving = false; }
     }
 
-    private async Task Delete(Guid id)
+    private void ShowDeleteConfirm(Guid id, string name)
     {
+        _confirmDeleteId = id;
+        _confirmDeleteName = name;
+        _confirmDeleteChecked = false;
+    }
+
+    private void CancelDeleteConfirm()
+    {
+        _confirmDeleteName = null;
+        _confirmDeleteChecked = false;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        _deleting = true;
         _error = null;
         try
         {
-            await Api.DeleteSectionAsync(id);
+            await Api.DeleteSectionAsync(_confirmDeleteId);
+            _confirmDeleteName = null;
+            _confirmDeleteChecked = false;
             await LoadSections();
         }
         catch (Exception ex) { _error = ex.Message; }
+        finally { _deleting = false; }
     }
 }

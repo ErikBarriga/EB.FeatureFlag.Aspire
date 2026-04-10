@@ -15,8 +15,24 @@ public class EnvironmentModel
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public List<string>? Tags { get; set; }
+}
+
+public class EnvironmentCreatedModel
+{
+    public Guid Id { get; set; }
+    public Guid ProductId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public List<string>? Tags { get; set; }
     public string PrimaryAccessKey { get; set; } = string.Empty;
     public string SecondaryAccessKey { get; set; } = string.Empty;
+}
+
+public class EnvironmentRotatedKeyModel
+{
+    public Guid Id { get; set; }
+    public string KeyType { get; set; } = string.Empty;
+    public string NewKey { get; set; } = string.Empty;
 }
 
 public class SectionModel

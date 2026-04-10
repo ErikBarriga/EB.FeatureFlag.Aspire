@@ -2,6 +2,7 @@
 @page "/environments"
 @rendermode InteractiveServer
 @inject FeatureFlagApiClient Api
+@inject IJSRuntime JS
 
 <PageTitle>Environments</PageTitle>
 
@@ -73,11 +74,22 @@
                     <tr>
                         <td>@e.Name</td>
                         <td>@e.Description</td>
-                        <td>@(e.Tags is not null ? string.Join(", ", e.Tags) : "")</td>
+                        <td>@if (e.Tags is not null) { @foreach (var tag in e.Tags) { <span class="badge rounded-pill bg-secondary me-1">@tag</span> } }</td>
                         <td>
                             <button class="btn btn-sm btn-outline-secondary" @onclick="() => ShowEdit(e)">Edit</button>
-                            <button class="btn btn-sm btn-outline-warning" @onclick="() => RotateKeys(e.Id)">Rotate Keys</button>
-                            <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(e.Id)">Delete</button>
+                            <div class="btn-group" style="position:relative">
+                                <button class="btn btn-sm btn-outline-warning dropdown-toggle" @onclick="() => ToggleRotateMenu(e.Id)">
+                                    Rotate Keys
+                                </button>
+                                @if (_rotateMenuOpenFor == e.Id)
+                                {
+                                    <ul class="dropdown-menu show">
+                                        <li><button class="dropdown-item" @onclick='() => ShowRotateConfirm(e.Id, "Primary")'>Rotate Primary Key</button></li>
+                                        <li><button class="dropdown-item" @onclick='() => ShowRotateConfirm(e.Id, "Secondary")'>Rotate Secondary Key</button></li>
+                                    </ul>
+                                }
+                            </div>
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => ShowDeleteConfirm(e.Id, e.Name)">Delete</button>
                         </td>
                     </tr>
                 }
@@ -86,18 +98,111 @@
     }
 }
 
-@if (_showKeys is not null)
+@if (_confirmDeleteName is not null)
 {
     <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Access Keys - @_showKeys.Name</h5>
-                    <button type="button" class="btn-close" @onclick="() => _showKeys = null"></button>
+                    <h5 class="modal-title">Confirm Delete</h5>
+                    <button type="button" class="btn-close" @onclick="CancelDeleteConfirm"></button>
                 </div>
                 <div class="modal-body">
-                    <p><strong>Primary:</strong> <code>@_showKeys.PrimaryAccessKey</code></p>
-                    <p><strong>Secondary:</strong> <code>@_showKeys.SecondaryAccessKey</code></p>
+                    <div class="alert alert-danger mb-3">
+                        <strong>Warning:</strong> You are about to delete the environment <strong>@_confirmDeleteName</strong>.
+                        Its access keys will be permanently invalidated.
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="confirmDeleteCheck" @bind="_confirmDeleteChecked" />
+                        <label class="form-check-label" for="confirmDeleteCheck">
+                            I understand and want to delete this environment
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelDeleteConfirm">Cancel</button>
+                    <button class="btn btn-danger" disabled="@(!_confirmDeleteChecked || _deleting)" @onclick="ConfirmDelete">
+                        @(_deleting ? "Deleting..." : "Delete")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_confirmRotateKeyType is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Key Rotation</h5>
+                    <button type="button" class="btn-close" @onclick="CancelRotateConfirm"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger mb-3">
+                        <strong>Warning:</strong> Rotating the <strong>@_confirmRotateKeyType</strong> access key will immediately
+                        invalidate the current key. Any application using it will lose access until updated with the new key.
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="confirmRotateCheck" @bind="_confirmRotateChecked" />
+                        <label class="form-check-label" for="confirmRotateCheck">
+                            I understand and want to rotate the <strong>@_confirmRotateKeyType</strong> key
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CancelRotateConfirm">Cancel</button>
+                    <button class="btn btn-danger" disabled="@(!_confirmRotateChecked || _rotating)" @onclick="ConfirmRotateKey">
+                        @(_rotating ? "Rotating..." : "Rotate Key")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_keysModalTitle is not null)
+{
+    <div class="modal d-block" tabindex="-1" style="background:rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@_keysModalTitle</h5>
+                    <button type="button" class="btn-close" @onclick="CloseKeysModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning mb-3">
+                        <strong>Important:</strong> Copy and store these keys now. They will not be visible once you close this dialog.
+                    </div>
+                    @if (_showPrimaryKey is not null)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Primary Access Key</strong></label>
+                            <div class="input-group">
+                                <code class="form-control" style="background:#f8f9fa">@_showPrimaryKey</code>
+                                <button class="btn btn-outline-secondary" @onclick="() => CopyToClipboard(_showPrimaryKey)" title="Copy">
+                                    <i class="bi bi-clipboard"></i> Copy
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    @if (_showSecondaryKey is not null)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label"><strong>Secondary Access Key</strong></label>
+                            <div class="input-group">
+                                <code class="form-control" style="background:#f8f9fa">@_showSecondaryKey</code>
+                                <button class="btn btn-outline-secondary" @onclick="() => CopyToClipboard(_showSecondaryKey)" title="Copy">
+                                    <i class="bi bi-clipboard"></i> Copy
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    @if (_copySuccess)
+                    {
+                        <div class="alert alert-success py-1 mb-0">Copied to clipboard!</div>
+                    }
                 </div>
             </div>
         </div>
@@ -146,7 +251,21 @@
     private List<EnvironmentModel>? _environments;
     private string? _productName;
     private string? _error;
-    private EnvironmentModel? _showKeys;
+    private string? _keysModalTitle;
+    private string? _showPrimaryKey;
+    private string? _showSecondaryKey;
+    private bool _copySuccess;
+    private Guid? _rotateMenuOpenFor;
+
+    private Guid _confirmDeleteId;
+    private string? _confirmDeleteName;
+    private bool _confirmDeleteChecked;
+    private bool _deleting;
+
+    private Guid _confirmRotateId;
+    private string? _confirmRotateKeyType;
+    private bool _confirmRotateChecked;
+    private bool _rotating;
 
     private bool _showForm;
     private bool _saving;
@@ -228,9 +347,19 @@
             var request = new { Name = _formName, Description = _formDescription, Tags = tags };
 
             if (_editId.HasValue)
+            {
                 await Api.UpdateEnvironmentAsync(_editId.Value, request);
+            }
             else
-                await Api.CreateEnvironmentAsync(_selectedProductId, request);
+            {
+                var created = await Api.CreateEnvironmentAsync(_selectedProductId, request);
+                if (created is not null)
+                {
+                    _keysModalTitle = $"Access Keys - {created.Name}";
+                    _showPrimaryKey = created.PrimaryAccessKey;
+                    _showSecondaryKey = created.SecondaryAccessKey;
+                }
+            }
 
             _showForm = false;
             await LoadData();
@@ -239,27 +368,85 @@
         finally { _saving = false; }
     }
 
-    private async Task Delete(Guid id)
+    private void ShowDeleteConfirm(Guid id, string name)
     {
-        _error = null;
-        try
-        {
-            await Api.DeleteEnvironmentAsync(id);
-            await LoadData();
-        }
-        catch (Exception ex) { _error = ex.Message; }
+        _confirmDeleteId = id;
+        _confirmDeleteName = name;
+        _confirmDeleteChecked = false;
     }
 
-    private async Task RotateKeys(Guid id)
+    private void CancelDeleteConfirm()
     {
+        _confirmDeleteName = null;
+        _confirmDeleteChecked = false;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        _deleting = true;
         _error = null;
         try
         {
-            var result = await Api.RotateEnvironmentKeysAsync(id);
-            if (result is not null)
-                _showKeys = result;
+            await Api.DeleteEnvironmentAsync(_confirmDeleteId);
+            _confirmDeleteName = null;
+            _confirmDeleteChecked = false;
             await LoadData();
         }
         catch (Exception ex) { _error = ex.Message; }
+        finally { _deleting = false; }
+    }
+
+    private void ToggleRotateMenu(Guid id)
+        => _rotateMenuOpenFor = _rotateMenuOpenFor == id ? null : id;
+
+    private void ShowRotateConfirm(Guid id, string keyType)
+    {
+        _rotateMenuOpenFor = null;
+        _confirmRotateId = id;
+        _confirmRotateKeyType = keyType;
+        _confirmRotateChecked = false;
+    }
+
+    private void CancelRotateConfirm()
+    {
+        _confirmRotateKeyType = null;
+        _confirmRotateChecked = false;
+    }
+
+    private async Task ConfirmRotateKey()
+    {
+        _rotating = true;
+        _error = null;
+        _copySuccess = false;
+        try
+        {
+            var result = await Api.RotateEnvironmentKeysAsync(_confirmRotateId, _confirmRotateKeyType!);
+            _confirmRotateKeyType = null;
+            _confirmRotateChecked = false;
+            if (result is not null)
+            {
+                _keysModalTitle = $"Rotated {result.KeyType} Access Key";
+                _showPrimaryKey = result.KeyType == "Primary" ? result.NewKey : null;
+                _showSecondaryKey = result.KeyType == "Secondary" ? result.NewKey : null;
+            }
+            await LoadData();
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _rotating = false; }
+    }
+
+    private void CloseKeysModal()
+    {
+        _keysModalTitle = null;
+        _showPrimaryKey = null;
+        _showSecondaryKey = null;
+        _copySuccess = false;
+    }
+
+    private async Task CopyToClipboard(string text)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", text);
+        _copySuccess = true;
+        StateHasChanged();
     }
 }

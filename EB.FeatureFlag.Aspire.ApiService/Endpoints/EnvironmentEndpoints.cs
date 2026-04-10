@@ -14,14 +14,14 @@ public static class EnvironmentEndpoints
         group.MapGet("/products/{productId:guid}/environments", async (Guid productId, IFeatureFlagProvider provider, CancellationToken ct) =>
         {
             var environments = await provider.GetEnvironmentsByProductIdAsync(productId, ct);
-            return Results.Ok(environments);
+            return Results.Ok(environments.Select(ToResponse));
         })
         .WithName("GetEnvironmentsByProduct");
 
         group.MapGet("/environments/{id:guid}", async (Guid id, IFeatureFlagProvider provider, CancellationToken ct) =>
         {
             var environment = await provider.GetEnvironmentByIdAsync(id, ct);
-            return environment is not null ? Results.Ok(environment) : Results.NotFound();
+            return environment is not null ? Results.Ok(ToResponse(environment)) : Results.NotFound();
         })
         .WithName("GetEnvironmentById");
 
@@ -36,7 +36,10 @@ public static class EnvironmentEndpoints
             };
 
             var created = await provider.UpsertEnvironmentAsync(dto, ct);
-            return Results.Created($"/api/environments/{created.Id}", created);
+            var response = new EnvironmentCreatedResponse(
+                created.Id, created.ProductId, created.Name, created.Description, created.Tags,
+                created.PrimaryAccessKey, created.SecondaryAccessKey);
+            return Results.Created($"/api/environments/{created.Id}", response);
         })
         .WithName("CreateEnvironment");
 
@@ -51,7 +54,7 @@ public static class EnvironmentEndpoints
             existing.Tags = request.Tags;
 
             var updated = await provider.UpsertEnvironmentAsync(existing, ct);
-            return Results.Ok(updated);
+            return Results.Ok(ToResponse(updated));
         })
         .WithName("UpdateEnvironment");
 
@@ -66,12 +69,16 @@ public static class EnvironmentEndpoints
         })
         .WithName("DeleteEnvironment");
 
-        group.MapPost("/environments/{id:guid}/rotate-keys", async (Guid id, IFeatureFlagProvider provider, CancellationToken ct) =>
+        group.MapPost("/environments/{id:guid}/rotate-keys", async (Guid id, RotateKeyRequest request, IFeatureFlagProvider provider, CancellationToken ct) =>
         {
+            if (request.KeyType is not ("Primary" or "Secondary"))
+                return Results.BadRequest("KeyType must be 'Primary' or 'Secondary'.");
+
             try
             {
-                var rotated = await provider.RotateEnvironmentKeysAsync(id, ct);
-                return Results.Ok(rotated);
+                var rotated = await provider.RotateEnvironmentKeysAsync(id, request.KeyType, ct);
+                var newKey = request.KeyType == "Primary" ? rotated.PrimaryAccessKey : rotated.SecondaryAccessKey;
+                return Results.Ok(new EnvironmentRotatedKeyResponse(rotated.Id, request.KeyType, newKey));
             }
             catch (KeyNotFoundException)
             {
@@ -82,4 +89,7 @@ public static class EnvironmentEndpoints
 
         return app;
     }
+
+    private static EnvironmentResponse ToResponse(EnvironmentDto dto) =>
+        new(dto.Id, dto.ProductId, dto.Name, dto.Description, dto.Tags);
 }

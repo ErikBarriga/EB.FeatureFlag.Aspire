@@ -190,13 +190,15 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         return result;
     }
 
-    public async Task<EnvironmentDto> RotateEnvironmentKeysAsync(Guid environmentId, CancellationToken cancellationToken = default)
+    public async Task<EnvironmentDto> RotateEnvironmentKeysAsync(Guid environmentId, string keyType, CancellationToken cancellationToken = default)
     {
         var environment = await _environmentRepository.GetByIdAsync(environmentId, cancellationToken)
             ?? throw new KeyNotFoundException($"Environment '{environmentId}' not found.");
 
-        environment.SecondaryAccessKey = environment.PrimaryAccessKey;
-        environment.PrimaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
+        if (keyType == "Primary")
+            environment.PrimaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
+        else
+            environment.SecondaryAccessKey = AccessKeyGenerator.GenerateAccessKey();
 
         await _environmentRepository.UpdateAsync(environment, cancellationToken);
 
