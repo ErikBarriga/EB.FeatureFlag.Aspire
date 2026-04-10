@@ -10,7 +10,8 @@ public static class SdkEndpoints
         var group = app.MapGroup("/api/sdk")
             .WithTags("SDK");
 
-        group.MapGet("/feature-flags", async (
+        group.MapGet("/feature-flags/{name}", async (
+            string name,
             HttpContext httpContext,
             IFeatureFlagProvider provider,
             CancellationToken ct) =>
@@ -20,31 +21,25 @@ public static class SdkEndpoints
             if (string.IsNullOrWhiteSpace(envKey))
                 return Results.Problem("Header 'X-Environment-Key' is required.", statusCode: 400);
 
-            var result = await provider.GetFeatureFlagsByAccessKeyAsync(envKey, ct);
-            if (result == null)
-                return Results.Problem("Invalid access key.", statusCode: 401);
+            var result = await provider.GetFeatureFlagByNameAndAccessKeyAsync(envKey, name, ct);
+            if (result is null)
+                return Results.NotFound(new { error = $"Feature flag '{name}' not found or invalid access key." });
 
-            var (product, environment, sections) = result.Value;
+            var (product, environment, section, flag) = result.Value;
 
-            var response = new SdkFeatureFlagsResponse(
-                Product: product.Name,
-                Environment: environment.Name,
-                Sections: sections.Select(s => new SdkSectionResponse(
-                    Name: s.SectionName,
-                    Flags: s.FeatureFlags.Select(ff => new SdkFeatureFlagResponse(
-                        Name: ff.Name,
-                        Type: ff.Type,
-                        Value: ff.Value
-                    )).ToList()
-                )).ToList()
-            );
-
-            return Results.Ok(response);
+            return Results.Ok(new SdkSingleFeatureFlagResponse(
+                Product: product,
+                Environment: environment,
+                Section: section,
+                Name: flag.Name,
+                Type: flag.Type,
+                Value: flag.Value
+            ));
         })
-        .WithName("GetFeatureFlags")
-        .Produces<SdkFeatureFlagsResponse>(200)
+        .WithName("GetFeatureFlagByName")
+        .Produces<SdkSingleFeatureFlagResponse>(200)
         .Produces(400)
-        .Produces(401);
+        .Produces(404);
 
         return app;
     }

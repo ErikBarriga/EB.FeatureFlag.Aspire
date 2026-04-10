@@ -135,4 +135,14 @@ public class FeatureFlagApiClient(HttpClient httpClient)
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<FeatureFlagDetailModel>(ct);
     }
+
+    // SDK Explorer
+    public async Task<SdkSingleFeatureFlagResponseModel?> GetSdkFeatureFlagAsync(string environmentKey, string flagName, CancellationToken ct = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Get, $"/api/sdk/feature-flags/{Uri.EscapeDataString(flagName)}");
+        request.Headers.Add("X-Environment-Key", environmentKey);
+        var response = await httpClient.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<SdkSingleFeatureFlagResponseModel>(ct);
+    }
 }

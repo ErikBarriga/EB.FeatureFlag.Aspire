@@ -72,3 +72,14 @@ public enum FeatureKeyType
     StringCollection = 2,
     JsonCollection = 3
 }
+
+// SDK Explorer models
+public class SdkSingleFeatureFlagResponseModel
+{
+    public string Product { get; set; } = string.Empty;
+    public string Environment { get; set; } = string.Empty;
+    public string Section { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public int Type { get; set; }
+    public object? Value { get; set; }
+}

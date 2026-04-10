@@ -473,6 +473,24 @@ public class FeatureFlagProvider : IFeatureFlagProvider
         return (product, environment, result);
     }
 
+    public async Task<(string Product, string Environment, string Section, SdkFeatureFlagItemDto Flag)?> GetFeatureFlagByNameAndAccessKeyAsync(
+        string environmentKey, string flagName, CancellationToken cancellationToken = default)
+    {
+        var all = await GetFeatureFlagsByAccessKeyAsync(environmentKey, cancellationToken);
+        if (all is null) return null;
+
+        var (product, environment, sections) = all.Value;
+
+        foreach (var sec in sections)
+        {
+            var flag = sec.FeatureFlags.FirstOrDefault(f => string.Equals(f.Name, flagName, StringComparison.OrdinalIgnoreCase));
+            if (flag is not null)
+                return (product.Name, environment.Name, sec.SectionName, flag);
+        }
+
+        return null;
+    }
+
     private async Task<FeatureFlagDetailDto?> ResolveExternalDetailValueAsync(FeatureFlagDetailDto? detail, FeatureFlagDto flag, CancellationToken cancellationToken)
     {
         if (detail == null || detail.ExternalConfig == null || _externalSourceService == null)

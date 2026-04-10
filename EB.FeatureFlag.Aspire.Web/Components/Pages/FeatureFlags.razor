@@ -2,6 +2,7 @@
 @page "/products/{ProductId:guid}/feature-flags"
 @page "/sections/{SectionId:guid}/feature-flags"
 @rendermode InteractiveServer
+@using System.Text.RegularExpressions
 @using EB.FeatureFlag.Aspire.Web.Models
 @inject FeatureFlagApiClient Api
 
@@ -152,10 +153,18 @@
                     <button type="button" class="btn-close" @onclick="CloseForm"></button>
                 </div>
                 <div class="modal-body">
+                    @if (_formError is not null)
+                    {
+                        <div class="alert alert-danger alert-dismissible py-2 mb-3">
+                            @_formError
+                            <button type="button" class="btn-close" @onclick="() => _formError = null"></button>
+                        </div>
+                    }
                     <div class="row mb-3">
                         <div class="col-md-6">
                             <label class="form-label">Name</label>
-                            <input class="form-control" @bind="_formName" />
+                            <input class="form-control" @bind="_formName" pattern="^[a-zA-Z0-9_\-\.\&\$]+$" />
+                            <small class="text-muted">Alphanumeric and _ - . & $ only (no spaces)</small>
                         </div>
                         <div class="col-md-6">
                             @if (!_editId.HasValue)
@@ -331,6 +340,7 @@
     // Create/Edit form
     private bool _showForm;
     private bool _saving;
+    private string? _formError;
     private Guid? _editId;
     private string _formName = string.Empty;
     private Guid _formSectionId;
@@ -445,6 +455,7 @@
         _formDescription = null;
         _formTags = null;
         _formValidationRegex = null;
+        _formError = null;
         _showForm = true;
     }
 
@@ -457,17 +468,36 @@
         _formDescription = ff.Description;
         _formTags = ff.Tags is not null ? string.Join(", ", ff.Tags) : null;
         _formValidationRegex = ff.ValidationRegex;
+        _formError = null;
         _showForm = true;
     }
 
-    private void CloseForm() => _showForm = false;
+    private void CloseForm()
+    {
+        _showForm = false;
+        _formError = null;
+    }
+
+    private static readonly Regex ValidFlagName = new(@"^[a-zA-Z0-9_\-\.\&\$]+$");
 
     private async Task SaveFlag()
     {
         _saving = true;
-        _error = null;
+        _formError = null;
         try
         {
+            if (string.IsNullOrWhiteSpace(_formName) || !ValidFlagName.IsMatch(_formName))
+            {
+                _formError = "Feature flag name must contain only alphanumeric characters and _ - . & $ (no spaces).";
+                return;
+            }
+
+            if (!_editId.HasValue && _formSectionId == Guid.Empty)
+            {
+                _formError = "Please select a section for the feature flag.";
+                return;
+            }
+
             var tags = string.IsNullOrWhiteSpace(_formTags)
                 ? null
                 : _formTags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
@@ -499,7 +529,7 @@
             _showForm = false;
             _featureFlags = await Api.GetFeatureFlagsByProductAsync(_selectedProductId);
         }
-        catch (Exception ex) { _error = ex.Message; }
+        catch (Exception ex) { _formError = ex.Message; }
         finally { _saving = false; }
     }
 

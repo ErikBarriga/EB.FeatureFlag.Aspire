@@ -1,11 +1,17 @@
+using System.Text.RegularExpressions;
 using EB.FeatureFlag.Aspire.ApiService.Models;
 using EB.FeatureFlag.Data.IProvider;
 using EB.FeatureFlag.Data.IRepository.DTOs;
 
 namespace EB.FeatureFlag.Aspire.ApiService.Endpoints;
 
-public static class FeatureFlagEndpoints
+public static partial class FeatureFlagEndpoints
 {
+    [GeneratedRegex(@"^[a-zA-Z0-9_\-\.\&\$]+$")]
+    private static partial Regex FeatureFlagNameRegex();
+
+    private static bool IsValidFlagName(string name) => FeatureFlagNameRegex().IsMatch(name);
+
     public static IEndpointRouteBuilder MapFeatureFlagEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api")
@@ -38,6 +44,9 @@ public static class FeatureFlagEndpoints
         // Create feature flag under a section (auto-creates details for each environment)
         group.MapPost("/sections/{sectionId:guid}/feature-flags", async (Guid sectionId, CreateFeatureFlagRequest request, IFeatureFlagProvider provider, CancellationToken ct) =>
         {
+            if (!IsValidFlagName(request.Name))
+                return Results.BadRequest(new { error = "Feature flag name must contain only alphanumeric characters and _ - . & $ (no spaces)." });
+
             var dto = new FeatureFlagDto
             {
                 SectionId = sectionId,
@@ -63,6 +72,9 @@ public static class FeatureFlagEndpoints
         // Update feature flag
         group.MapPut("/feature-flags/{id:guid}", async (Guid id, UpdateFeatureFlagRequest request, IFeatureFlagProvider provider, CancellationToken ct) =>
         {
+            if (!IsValidFlagName(request.Name))
+                return Results.BadRequest(new { error = "Feature flag name must contain only alphanumeric characters and _ - . & $ (no spaces)." });
+
             var existing = await provider.GetFeatureFlagByIdAsync(id, ct);
             if (existing is null)
                 return Results.NotFound();

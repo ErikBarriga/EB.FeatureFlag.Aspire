@@ -1,0 +1,101 @@
+@page "/sdk-explorer"
+@rendermode InteractiveServer
+@using EB.FeatureFlag.Aspire.Web.Models
+@inject FeatureFlagApiClient Api
+
+<PageTitle>SDK Explorer</PageTitle>
+
+<h1>SDK Explorer</h1>
+<p class="text-muted">Test the SDK endpoint by querying a single feature flag by name using an environment access key.</p>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger alert-dismissible">
+        @_error
+        <button type="button" class="btn-close" @onclick="() => _error = null"></button>
+    </div>
+}
+
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label class="form-label"><strong>Environment Access Key</strong></label>
+                <input class="form-control" @bind="_accessKey" placeholder="Paste a Primary or Secondary access key" />
+            </div>
+            <div class="col-md-6">
+                <label class="form-label"><strong>Feature Flag Name</strong></label>
+                <input class="form-control" @bind="_flagName" placeholder="e.g. LoggerLevel_1-DEMO" />
+            </div>
+        </div>
+        <button class="btn btn-primary" @onclick="FetchFlag" disabled="@(_loading || string.IsNullOrWhiteSpace(_accessKey) || string.IsNullOrWhiteSpace(_flagName))">
+            @(_loading ? "Loading..." : "Fetch Feature Flag")
+        </button>
+    </div>
+</div>
+
+@if (_result is not null)
+{
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <span class="badge bg-primary me-1">@_result.Product</span>
+                <span class="badge bg-success me-1">@_result.Environment</span>
+                <span class="badge bg-secondary">@_result.Section</span>
+            </div>
+            <span class="badge bg-info">@((FeatureKeyType)_result.Type)</span>
+        </div>
+        <div class="card-body">
+            <h5 class="card-title"><code>@_result.Name</code></h5>
+            <div class="mt-3">
+                <label class="form-label text-muted"><strong>Value</strong></label>
+                @if (_result.Value is null)
+                {
+                    <div class="text-muted fst-italic">(not set)</div>
+                }
+                else if ((FeatureKeyType)_result.Type == FeatureKeyType.Boolean)
+                {
+                    var boolVal = _result.Value?.ToString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true
+                               || _result.Value?.ToString()?.Equals("True", StringComparison.OrdinalIgnoreCase) == true;
+                    <div><span class="badge fs-6 @(boolVal ? "bg-success" : "bg-danger")">@_result.Value</span></div>
+                }
+                else
+                {
+                    <pre class="bg-light p-3 rounded border" style="white-space:pre-wrap;word-break:break-word">@_result.Value</pre>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string _accessKey = string.Empty;
+    private string _flagName = string.Empty;
+    private string? _error;
+    private bool _loading;
+    private SdkSingleFeatureFlagResponseModel? _result;
+
+    private async Task FetchFlag()
+    {
+        _loading = true;
+        _error = null;
+        _result = null;
+        try
+        {
+            _result = await Api.GetSdkFeatureFlagAsync(_accessKey.Trim(), _flagName.Trim());
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            _error = $"Feature flag '{_flagName.Trim()}' was not found. Verify the flag name and access key.";
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            _error = "The environment access key header is required.";
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally { _loading = false; }
+    }
+}

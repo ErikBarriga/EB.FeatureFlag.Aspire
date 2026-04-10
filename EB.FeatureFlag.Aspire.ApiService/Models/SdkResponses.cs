@@ -15,3 +15,11 @@ public record SdkFeatureFlagResponse(
     string Name,
     FeatureKeyType Type,
     object? Value);
+
+public record SdkSingleFeatureFlagResponse(
+    string Product,
+    string Environment,
+    string Section,
+    string Name,
+    FeatureKeyType Type,
+    object? Value);

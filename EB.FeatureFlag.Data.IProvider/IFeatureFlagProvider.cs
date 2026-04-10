@@ -38,4 +38,7 @@ public interface IFeatureFlagProvider
     // SDK / Public API
     Task<(ProductDto Product, EnvironmentDto Environment, IEnumerable<SdkSectionFlagsDto> Sections)?> GetFeatureFlagsByAccessKeyAsync(
         string environmentKey, CancellationToken cancellationToken = default);
+
+    Task<(string Product, string Environment, string Section, SdkFeatureFlagItemDto Flag)?> GetFeatureFlagByNameAndAccessKeyAsync(
+        string environmentKey, string flagName, CancellationToken cancellationToken = default);
 }
